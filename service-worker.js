@@ -1,4 +1,10 @@
-const CACHE_NAME = 'ledger-cache-v15';
+// Cache Storage is shared across every app on this origin (username.github.io),
+// not per sub-path — so this beta build and the main app's service worker both
+// see the exact same cache list. CACHE_PREFIX makes sure this service worker's
+// cleanup step only ever touches caches belonging to *this* (beta) build,
+// never the main app's cache, even though they share an origin.
+const CACHE_PREFIX = 'ledger-beta-cache-';
+const CACHE_NAME = CACHE_PREFIX + 'v16';
 const APP_SHELL = [
   './index.html',
   './manifest.json',
@@ -21,7 +27,9 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(
+        keys.filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE_NAME).map((k) => caches.delete(k))
+      ))
       .then(() => self.clients.claim())
   );
 });
