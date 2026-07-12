@@ -620,7 +620,7 @@ textarea{width:100%;resize:vertical;min-height:64px;}
       <button class="btn" data-action="new-file">Start a new ledger</button>
     </div>
     <div class="gatenote" id="gateSupportNote"></div>
-    <div class="gateversion">Ledger v<span id="gateVersionNum"></span> · <span class="codename" id="gateVersionCodename"></span></div>
+    <div class="gateversion">Ledger <span id="gateVersionNum"></span> · <span class="codename" id="gateVersionCodename"></span></div>
   </div>
 </div>
 
@@ -680,7 +680,7 @@ if('serviceWorker' in navigator){
 }
 
 /* ============================= DATA LAYER ============================= */
-const APP_VERSION='3.2';
+const APP_VERSION='beta3.4';
 const APP_CODENAME='Inkwell';
 const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const DAY_NAMES_FULL = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
@@ -2440,7 +2440,7 @@ function renderSettings(){
     <button class="btn danger" data-action="clear-all">Clear all data</button>
   </div>
   <div class="card" style="text-align:center;">
-    <div style="font-family:var(--font-mono);font-size:12px;color:var(--ink-soft);">Ledger v${APP_VERSION} · <span style="font-style:italic;">${APP_CODENAME}</span></div>
+    <div style="font-family:var(--font-mono);font-size:12px;color:var(--ink-soft);">Ledger ${APP_VERSION} · <span style="font-style:italic;">${APP_CODENAME}</span></div>
   </div>
   `;
 }
