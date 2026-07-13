@@ -620,7 +620,7 @@ textarea{width:100%;resize:vertical;min-height:64px;}
       <button class="btn" data-action="new-file">Start a new ledger</button>
     </div>
     <div class="gatenote" id="gateSupportNote"></div>
-    <div class="gateversion">Ledger <span id="gateVersionNum"></span> · <span class="codename" id="gateVersionCodename"></span></div>
+    <div class="gateversion">Ledger v<span id="gateVersionNum"></span> · <span class="codename" id="gateVersionCodename"></span></div>
   </div>
 </div>
 
@@ -680,8 +680,15 @@ if('serviceWorker' in navigator){
 }
 
 /* ============================= DATA LAYER ============================= */
-const APP_VERSION='beta3.4';
+const APP_VERSION='3.4';
 const APP_CODENAME='Inkwell';
+// The ONE intentional difference between the main and beta deployments'
+// index.html: everything else stays byte-identical. Set to 'beta' in the
+// beta copy only, so the version display below reads e.g. "Beta 3.4"
+// instead of just "3.4" — makes it unmistakable which build you're in,
+// on top of the already-different app name/icon.
+const BUILD_CHANNEL='beta';
+const DISPLAY_VERSION = BUILD_CHANNEL ? `Beta ${APP_VERSION}` : APP_VERSION;
 const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const DAY_NAMES_FULL = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const SUBJECT_PALETTE = ['#2E5E4E','#4A5FBF','#B23A48','#C98A3E','#6B4C7A','#3E7C8C','#8C5B3E','#5B7A3E','#7A3E5E','#3E5E7A','#A6444A','#4A8FA6','#7A5E3E','#5E3E7A','#3E7A5E','#A67E3E','#3E4A7A','#7A3E3E','#4A7A3E','#3E3E5E'];
@@ -1175,7 +1182,7 @@ document.getElementById('galleryInput').addEventListener('change', e=>{ handlePh
 document.getElementById('gateSupportNote').textContent = supportsFSAccess
   ? 'Your browser supports direct file saving — changes write straight back to your file.'
   : 'Your browser will download an updated file each time you save; overwrite the old one to keep a single ledger.';
-document.getElementById('gateVersionNum').textContent = APP_VERSION;
+document.getElementById('gateVersionNum').textContent = DISPLAY_VERSION;
 document.getElementById('gateVersionCodename').textContent = APP_CODENAME;
 
 /* ============================= TOAST ============================= */
@@ -1799,7 +1806,10 @@ function fmtBytes(bytes){
 function defaultPhotoState(){ return {version:1, photos:[]}; }
 function migratePhotoState(s){ s.version=s.version||1; s.photos=s.photos||[]; return s; }
 function photosLinked(){ return photoState!==null; }
-function getPhotosArray(){ return photosLinked() ? photoState.photos : (state.photos||[]); }
+function getPhotosArray(){
+  if(photoLockedRaw) return []; // locked, password not entered yet this session — never expose anything
+  return photosLinked() ? photoState.photos : (state.photos||[]);
+}
 function markPhotosDirty(){ if(photosLinked()) schedulePhotoSave(); else scheduleSave(); }
 
 /* ---- Password-lock (client-side encryption) ----
@@ -1809,7 +1819,7 @@ function markPhotosDirty(){ if(photosLinked()) schedulePhotoSave(); else schedul
    `ciphertext` is the AES-256-GCM encryption of {photos:[...]}, keyed from the password via PBKDF2.
    Nothing here is decryptable without the password — not by opening the file in a text editor,
    not by inspecting it on disk, and not by this app itself unless it's been unlocked this session. */
-const PHOTO_LOCK_ITERATIONS=250000;
+const PHOTO_LOCK_ITERATIONS=600000;
 function isLockedPhotoFile(parsed){
   return !!(parsed && parsed.locked===true && typeof parsed.ciphertext==='string' && typeof parsed.salt==='string' && typeof parsed.iv==='string');
 }
@@ -1874,6 +1884,20 @@ async function removeLockPassword(){
   photoState.locked=false;
   photoLockKey=null; photoLockMeta=null; photoLockLastWrapper=null;
   await savePhotoFile(false);
+}
+// Re-locks without closing the app: forces a fresh save first (so nothing
+// unsaved gets left behind — important on browsers without a persistent file
+// handle, where "save" just means "download a fresh copy"), then drops the
+// decrypted copy and key from memory. The password is required again to view
+// photos after this, same as if the app had been closed and reopened.
+async function relockPhotosNow(){
+  if(!photoState || !photoState.locked || !photoLockKey) return;
+  await savePhotoFile(false);
+  photoLockedRaw=photoLockLastWrapper;
+  photoState=null;
+  photoLockKey=null;
+  toast('Photos locked.');
+  render();
 }
 async function serializePhotoStateForDisk(){
   if(photoState && photoState.locked && photoLockKey){
@@ -1954,13 +1978,30 @@ async function linkPhotoFile(mode){
 async function migrateLegacyPhotos(mode){
   const legacy=(state.photos||[]).slice();
   await linkPhotoFile(mode);
-  if(!photoState) return;
+  if(!photoState){
+    if(photoLockedRaw){
+      toast('That photos file is locked. Enter its password below, then use "Move photos here" again to finish bringing these over.');
+      pendingLegacyPhotos=legacy; // picked up by finishPendingLegacyMigration() right after a successful unlock
+      render();
+    }
+    return;
+  }
   photoState.photos=photoState.photos.concat(legacy);
   state.photos=[];
   scheduleSave();
   schedulePhotoSave();
   toast('Photos moved to a separate file.');
   render();
+}
+let pendingLegacyPhotos=null;
+function finishPendingLegacyMigration(){
+  if(!pendingLegacyPhotos || !photoState) return;
+  photoState.photos=photoState.photos.concat(pendingLegacyPhotos);
+  state.photos=[];
+  pendingLegacyPhotos=null;
+  scheduleSave();
+  schedulePhotoSave();
+  toast('Photos moved to a separate file.');
 }
 /* ============================= IMPORT PHOTOS FROM ANOTHER FILE ============================= */
 // Covers the "photos taken on another device" case: someone opens the app fresh
@@ -2186,6 +2227,7 @@ function renderPhotos(){
       ${photoState.locked?`
         <div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;line-height:1.5;">🔒 Locked — on disk this file is unreadable ciphertext without the password, and it'll ask again next time it's opened, in the app or anywhere else.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn" data-action="lock-photos-now">Lock now</button>
           <button class="btn" data-action="change-photo-password">Change password</button>
           <button class="btn danger" data-action="remove-photo-password">Remove password</button>
         </div>
@@ -2440,7 +2482,7 @@ function renderSettings(){
     <button class="btn danger" data-action="clear-all">Clear all data</button>
   </div>
   <div class="card" style="text-align:center;">
-    <div style="font-family:var(--font-mono);font-size:12px;color:var(--ink-soft);">Ledger ${APP_VERSION} · <span style="font-style:italic;">${APP_CODENAME}</span></div>
+    <div style="font-family:var(--font-mono);font-size:12px;color:var(--ink-soft);">Ledger v${DISPLAY_VERSION} · <span style="font-style:italic;">${APP_CODENAME}</span></div>
   </div>
   `;
 }
@@ -2720,7 +2762,7 @@ document.body.addEventListener('click', async function(e){
     const pw=input?input.value:'';
     if(!pw){ toast('Enter your password.'); return; }
     const ok=await unlockPhotosWithPassword(pw);
-    if(ok){ toast('Unlocked.'); render(); } else { toast('Incorrect password.'); }
+    if(ok){ finishPendingLegacyMigration(); toast('Unlocked.'); render(); } else { toast('Incorrect password.'); }
     return;
   }
   if(action==='set-photo-password'){ openModal(setPhotoPasswordModalHtml()); return; }
@@ -2735,6 +2777,7 @@ document.body.addEventListener('click', async function(e){
     return;
   }
   if(action==='change-photo-password'){ openModal(changePhotoPasswordModalHtml()); return; }
+  if(action==='lock-photos-now'){ await relockPhotosNow(); return; }
   if(action==='confirm-change-photo-password'){
     const cur=document.getElementById('pw-cur').value;
     const p1=document.getElementById('pw-new1').value, p2=document.getElementById('pw-new2').value;

@@ -1,4 +1,4 @@
-// Cache Storage is shared across every app on this origin (username.github.io),
+// Cache Storage is shared across every app on this origin (e.g. username.github.io),
 // not per sub-path — so this beta build and the main app's service worker both
 // see the exact same cache list. CACHE_PREFIX makes sure this service worker's
 // cleanup step only ever touches caches belonging to *this* (beta) build,
@@ -34,21 +34,40 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Cache-first for the app shell, falling back to network, so the app opens
-// fully offline after the first visit. Network requests that aren't part of
-// the shell (e.g. Google Fonts) are passed through and cached opportunistically.
+// Cache-first for anything already cached (and refreshed in the background
+// for next time). For anything not yet cached, try the network — and if
+// that fails (offline), fall back to the cached app shell for navigations,
+// since this is a single-page app: index.html can serve any route. Without
+// this fallback, an offline navigation to a URL that was never cached
+// resolves to nothing and the browser shows its own generic "you're
+// offline" page instead of the app.
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const networkFetch = fetch(event.request).then((response) => {
+  const isNavigation = event.request.mode === 'navigate';
+
+  event.respondWith((async () => {
+    const cached = await caches.match(event.request);
+    if (cached) {
+      fetch(event.request).then((response) => {
         if (response && response.status === 200) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response));
         }
-        return response;
-      }).catch(() => cached);
-      return cached || networkFetch;
-    })
-  );
+      }).catch(() => {});
+      return cached;
+    }
+    try {
+      const response = await fetch(event.request);
+      if (response && response.status === 200) {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+      }
+      return response;
+    } catch (err) {
+      if (isNavigation) {
+        const shell = await caches.match('./index.html');
+        if (shell) return shell;
+      }
+      throw err;
+    }
+  })());
 });
