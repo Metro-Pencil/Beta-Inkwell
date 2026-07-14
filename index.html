@@ -335,6 +335,81 @@
   --shadow:0 2px 12px rgba(70,110,150,0.14);
 }
 
+/* ===== THEME: Dusk — dark, dusty muted pastels (rose & sage), soft candlelit glow ===== */
+[data-palette="dusk"]{
+  --paper:#211D25;
+  --paper-2:#29232E;
+  --paper-3:#362F3B;
+  --ink:#EDE6E9;
+  --ink-soft:#A99CAB;
+  --line:#453B4A;
+  --accent-study:#8FBFA3;
+  --accent-study-soft:#26362E;
+  --accent-due:#D998AA;
+  --accent-due-soft:#3A2830;
+  --accent-gold:#D9BE94;
+  --accent-gold-soft:#3A3225;
+  --accent-info:#A2AAE0;
+  --accent-info-soft:#292C46;
+  --radius:15px;
+  --radius-sm:10px;
+  --font-display:'Quicksand',sans-serif;
+  --font-body:'Nunito',sans-serif;
+  --shadow:0 4px 20px rgba(0,0,0,0.4);
+}
+[data-palette="dusk"] .card{ border-width:0; }
+[data-palette="dusk"] .btn{ border-radius:100px; font-weight:700; }
+[data-palette="dusk"] .navitem{ border-radius:100px; }
+[data-palette="dusk"] .navitem.active{ box-shadow:0 3px 12px rgba(143,191,163,0.25); }
+[data-palette="dusk"] .swatch,[data-palette="dusk"] .cal-cell{ border-radius:10px; }
+[data-palette="dusk"] h1,[data-palette="dusk"] h2,[data-palette="dusk"] h3,[data-palette="dusk"] .display{ font-weight:700; letter-spacing:0; }
+[data-palette="dusk"] body{ position:relative; }
+[data-palette="dusk"] body::before{
+  content:''; position:fixed; inset:-15%;
+  background:radial-gradient(circle at 30% 25%,rgba(217,152,170,0.07),transparent 45%),
+             radial-gradient(circle at 75% 70%,rgba(143,191,163,0.07),transparent 45%);
+  animation:duskGlow 10s ease-in-out infinite alternate;
+  z-index:0; pointer-events:none;
+}
+@keyframes duskGlow{0%{opacity:.6;}100%{opacity:1;}}
+[data-palette="dusk"] #app{ position:relative; z-index:1; }
+
+/* ===== THEME: Twilight — dark, cool muted pastels (periwinkle & seafoam), dreamy drifting glow ===== */
+[data-palette="twilight"]{
+  --paper:#1A1F30;
+  --paper-2:#222840;
+  --paper-3:#2D3450;
+  --ink:#E7E9F6;
+  --ink-soft:#909ac0;
+  --line:#3A4262;
+  --accent-study:#8ED9C4;
+  --accent-study-soft:#20362F;
+  --accent-due:#E29ACB;
+  --accent-due-soft:#3A2438;
+  --accent-gold:#E0C88A;
+  --accent-gold-soft:#3A3222;
+  --accent-info:#A7B3F2;
+  --accent-info-soft:#262C4E;
+  --radius:13px;
+  --radius-sm:9px;
+  --font-display:'Space Grotesk',sans-serif;
+  --font-body:'Space Grotesk',sans-serif;
+  --shadow:0 4px 24px rgba(0,0,0,0.45);
+}
+[data-palette="twilight"] #app{ position:relative; z-index:1; }
+[data-palette="twilight"] body{ position:relative; }
+[data-palette="twilight"] body::before{
+  content:''; position:fixed; inset:-20%;
+  background:
+    radial-gradient(circle at 22% 22%,rgba(142,217,196,0.09),transparent 42%),
+    radial-gradient(circle at 78% 30%,rgba(167,179,242,0.09),transparent 45%),
+    radial-gradient(circle at 50% 88%,rgba(226,154,203,0.07),transparent 42%);
+  animation:auroraDrift 24s ease-in-out infinite alternate;
+  z-index:0; pointer-events:none;
+}
+[data-palette="twilight"] .card{ backdrop-filter:blur(2px); }
+
+
 *{box-sizing:border-box;}
 body{margin:0;}
 html,body{height:100%;}
@@ -450,6 +525,7 @@ main{flex:1;min-width:0;padding:24px 34px 60px;}
 .viewtoggle{display:flex;gap:4px;background:var(--paper-3);padding:3px;border-radius:8px;}
 .viewtoggle button{border:none;background:none;padding:6px 12px;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--ink-soft);}
 .viewtoggle button.active{background:var(--paper);color:var(--ink);box-shadow:var(--shadow);}
+.viewtoggle button:disabled{opacity:.4;cursor:not-allowed;}
 
 .weekwrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--paper-2);}
 .weekgrid{display:grid;grid-template-columns:52px repeat(7,minmax(108px,1fr));min-width:820px;position:relative;}
@@ -571,6 +647,19 @@ textarea{width:100%;resize:vertical;min-height:64px;}
 @keyframes fsDrift{0%{transform:translateX(-20vw);}100%{transform:translateX(110vw);}}
 .timer-fs.fs-mint .fs-leaf{position:absolute;font-size:22px;opacity:.5;animation:fsSway ease-in-out infinite;}
 @keyframes fsSway{0%,100%{transform:translateY(0) rotate(-8deg);}50%{transform:translateY(-14px) rotate(8deg);}}
+
+/* --- dusk: candlelit breathing glow + drifting fireflies --- */
+.timer-fs.fs-dusk::before{content:'';position:absolute;inset:-15%;background:radial-gradient(circle at 50% 45%,rgba(217,152,170,0.14),transparent 60%);animation:fsBreathe 7s ease-in-out infinite;z-index:0;}
+.timer-fs.fs-dusk .fs-firefly{position:absolute;border-radius:50%;background:var(--accent-gold);box-shadow:0 0 6px 1px var(--accent-gold);animation:fsFirefly ease-in-out infinite;}
+@keyframes fsFirefly{0%,100%{opacity:.2;transform:translateY(0);}50%{opacity:.9;transform:translateY(-18px);}}
+
+/* --- twilight: dreamy drifting glow + twinkling stars --- */
+.timer-fs.fs-twilight::before{content:'';position:absolute;inset:-25%;background:
+    radial-gradient(circle at 22% 22%,rgba(142,217,196,0.16),transparent 42%),
+    radial-gradient(circle at 78% 30%,rgba(167,179,242,0.16),transparent 45%),
+    radial-gradient(circle at 50% 88%,rgba(226,154,203,0.13),transparent 42%);
+  animation:auroraDrift 16s ease-in-out infinite alternate;z-index:0;}
+.timer-fs.fs-twilight .fs-star{position:absolute;border-radius:50%;background:#fff;animation:fsTwinkle 3s ease-in-out infinite;}
 
 /* ===== Stats ===== */
 .barrow{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
@@ -757,7 +846,7 @@ if('serviceWorker' in navigator){
 }
 
 /* ============================= DATA LAYER ============================= */
-const APP_VERSION='3.5';
+const APP_VERSION='3.6';
 const APP_CODENAME='Inkwell';
 // The ONE intentional difference between the main and beta deployments'
 // index.html: everything else stays byte-identical. Set to 'beta' in the
@@ -1002,13 +1091,14 @@ function onFileReady(name){
 }
 
 /* ============================= ADDITIVE MERGE (used by server sync) =============================
-   Only subjects, schedule blocks, study logs, homework, and questions are ever synced — never
-   settings, the active timer session, or photos. The merge is strictly additive: a record already
+   Subjects and study logs are the only categories that ever merge additively: a record already
    present on this device (matched by its id) is never edited or overwritten — only records missing
-   here get added.
+   here get added, and nothing already here is ever lost. Schedule blocks, homework, and questions
+   are handled differently (see the OVERWRITE step in serverSyncNow below) — they always overwrite
+   the cloud copy with whatever's on this device, edits and deletions included, rather than merging.
 
-   Subjects get one extra rule on top of that: an incoming subject is also treated as "already
-   here" if its name matches one we already have (case/whitespace-insensitive), even under a
+   Subjects get one extra rule on top of the additive merge: an incoming subject is also treated as
+   "already here" if its name matches one we already have (case/whitespace-insensitive), even under a
    different id. Without this, two devices that each started their own fresh ledger — so each
    has its own randomly-id'd "Mathematics", "Physics", "English" — would end up with six subjects
    instead of three the first time they synced, since plain id-matching can't tell those pairs
@@ -1051,30 +1141,39 @@ function computeMergeDiff(incoming){
       .map(x=>({...x, subjectId:fixSubjectId(x.subjectId)}))
   };
 }
+/* Only subjects and study logs ever merge additively — schedule blocks, homework, and questions
+   are intentionally left out here; they're overwritten wholesale by the OVERWRITE step in
+   serverSyncNow instead, so this function never adds incoming copies of those three back in. */
 function applyMergeDiff(diff){
   state.subjects=state.subjects.concat(diff.subjects);
-  state.scheduleBlocks=state.scheduleBlocks.concat(diff.scheduleBlocks);
   state.studyLogs=state.studyLogs.concat(diff.studyLogs);
-  state.homework=state.homework.concat(diff.homework);
-  state.questions=state.questions.concat(diff.questions);
 }
 
 /* ============================= SERVER SYNC (online, via a small Cloudflare Worker) =============================
    A tiny free backend (see worker.js, deployed separately on Cloudflare Workers) acts as a mailbox.
-   This device POSTs its own data only when you tap "Save & sync now" in Settings — nothing syncs
-   automatically. The server merges it additively into whatever's already stored under the shared
-   "sync code" and hands back the merged superset; this device then merges that superset into itself
-   using the same additive logic above. Net effect: a real two-way handshake, works over any internet
-   connection, and no record already on either side is ever edited, overwritten, or duplicated.
+   This device only talks to it when you tap "Save & sync now" in Settings — nothing syncs
+   automatically. "Save & sync now" is now a two-step handshake that treats the five synced
+   categories differently, on purpose:
 
-   That safety is also its limitation: an edit or a delete made on this device never reaches the
-   server through "Save & sync now" — the record you changed or removed is still on the server
-   exactly as it was, and a plain sync will never touch it. "Upload" (serverUploadNow, below) is the
-   escape hatch: it PUTs this device's current data to the server and the server replaces its stored
-   copy wholesale, rather than merging. That means edits do overwrite, and anything you deleted here
-   disappears from the server too — but it also means any not-yet-synced changes sitting on *other*
-   devices get discarded, so it's a deliberate, explicit action rather than something that runs as
-   part of a routine sync. */
+   1) MERGE step (subjects + study logs only) — this device POSTs its own subjects/study logs,
+      the server merges them additively into whatever's already stored under the shared "sync
+      code" and hands back the merged superset, and this device merges that superset into itself
+      using the additive logic above. No record already on either side is ever edited,
+      overwritten, or duplicated — a delete or edit made here never removes it from the server.
+
+   2) OVERWRITE step (schedule blocks + homework + questions) — right after the merge step, this
+      device PUTs its current copy of these three categories and the server's stored copy is
+      replaced wholesale to match. Edits and deletions made on this device DO take effect on the
+      server this way, every time you sync — not just when you use the separate "Upload" button —
+      because these three are the ones you're most likely to reschedule, edit, or delete day to
+      day, and a purely additive merge could never reflect that. The subjects/study logs sent
+      alongside this step are exactly the merged copy from step 1, so this step never re-adds
+      anything the merge intentionally left out, and never loses anything either.
+
+   "Upload" (serverUploadNow, below) still exists as a separate, deliberate escape hatch: it
+   overwrites *all five* categories — including subjects and study logs — to match this device
+   exactly. Only use it once this device is the one you trust most, since anything not yet synced
+   on other devices is discarded. */
 let serverSyncInFlight=false;
 async function serverSyncNow(){
   if(serverSyncInFlight) return;
@@ -1087,22 +1186,38 @@ async function serverSyncNow(){
   const origLabel=btn?btn.textContent:null;
   if(btn){ btn.textContent='Syncing…'; btn.disabled=true; }
   try{
-    const resp=await fetch(base+'/sync?code='+encodeURIComponent(code), {
+    // Step 1: merge — subjects and study logs only, additive both ways.
+    const mergeResp=await fetch(base+'/sync?code='+encodeURIComponent(code), {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify(syncableData())
     });
-    if(!resp.ok){
-      const errText=await resp.text().catch(()=>'');
-      throw new Error('Server responded with '+resp.status+(errText?': '+errText.slice(0,120):''));
+    if(!mergeResp.ok){
+      const errText=await mergeResp.text().catch(()=>'');
+      throw new Error('Server responded with '+mergeResp.status+(errText?': '+errText.slice(0,120):''));
     }
-    const merged=await resp.json();
+    const merged=await mergeResp.json();
     const diff=computeMergeDiff(merged);
-    const total=diff.subjects.length+diff.scheduleBlocks.length+diff.studyLogs.length+diff.homework.length;
+    const total=diff.subjects.length+diff.studyLogs.length;
     applyMergeDiff(diff);
     scheduleSave();
+
+    // Step 2: overwrite — schedule blocks, homework, and questions always push this device's
+    // current copy to the cloud, replacing whatever was stored there. Subjects/study logs are
+    // sent back exactly as just merged, so nothing from step 1 gets lost or duplicated.
+    const overwriteResp=await fetch(base+'/sync?code='+encodeURIComponent(code), {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(syncableData())
+    });
+    if(!overwriteResp.ok){
+      const errText=await overwriteResp.text().catch(()=>'');
+      throw new Error('Server responded with '+overwriteResp.status+(errText?': '+errText.slice(0,120):'')+' while pushing schedule/homework/questions.');
+    }
+    await overwriteResp.json().catch(()=>null);
+
     render();
-    toast(total>0 ? `Synced — added ${total} new record${total===1?'':'s'} from the server.` : 'Synced — already up to date.');
+    toast(total>0 ? `Synced — added ${total} new record${total===1?'':'s'}, and pushed the latest schedule, homework, and questions.` : 'Synced — schedule, homework, and questions pushed to the cloud.');
   }catch(err){
     toast('Sync failed: '+err.message);
   }finally{
@@ -1144,7 +1259,7 @@ function confirmUploadModal(){
   openModal(`
     <h3 style="margin:0 0 10px;font-size:15px;">Overwrite the cloud copy?</h3>
     <div style="font-size:13px;color:var(--ink-soft);line-height:1.6;margin-bottom:16px;">
-      This replaces everything stored under this sync code with exactly what's on this device right now — including deleting anything on the server that isn't here anymore. If another device has changes it hasn't synced yet, those will be lost. If you just want to safely pull in new records from elsewhere, use "Save &amp; sync now" instead.
+      This replaces everything stored under this sync code with exactly what's on this device right now — including deleting anything on the server that isn't here anymore. If another device has changes to subjects or the study log that it hasn't synced yet, those will be lost — schedule, homework, and questions are already overwritten on every regular sync, so this mainly matters for subjects and the study log. If you just want to safely merge those in from elsewhere, use "Save &amp; sync now" instead.
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn" data-action="close-modal">Cancel</button>
@@ -1163,6 +1278,7 @@ function startStopwatch(subjectId,topic){
   if(!subjectId) subjectId=state.subjects[0]?.id;
   if(!subjectId){ toast('Add a subject first.'); return; }
   state.activeSession={subjectId,startedAt:new Date().toISOString(),topic:topic||''};
+  timerMode='stopwatch';
   saveFile(false);
   updateLiveSessionBadge();
   ensureStopwatchTicking();
@@ -1425,6 +1541,9 @@ function renderQuickStartActive(){
   `;
 }
 function renderQuickStartIdle(){
+  if(timer.running){
+    return `<div style="font-size:12.5px;color:var(--ink-soft);line-height:1.5;">A pomodoro timer is currently running on the Timer tab. Pause or finish it before starting a stopwatch session.</div>`;
+  }
   return `
   <select id="sw-subject" style="width:100%;margin-bottom:8px;">${subjOptions(state.subjects[0]?.id)}</select>
   <input type="text" id="sw-topic" placeholder="What are you studying? (optional)" style="width:100%;margin-bottom:10px;">
@@ -1682,13 +1801,17 @@ function questionModalHtml(q){
 /* ============================= TIMER VIEW ============================= */
 function renderTimer(){
   const recent=state.studyLogs.slice(-8).reverse();
+  const stopwatchActive=!!state.activeSession;
+  const pomodoroActive=timer.running;
   return `
   <div class="pagehead"><div><h1>Timer</h1><div class="sub">Track a live study session, or use a focus/break pomodoro.</div></div>
     <div class="viewtoggle">
-      <button class="${timerMode==='stopwatch'?'active':''}" data-action="timer-mode" data-mode="stopwatch">Stopwatch</button>
-      <button class="${timerMode==='pomodoro'?'active':''}" data-action="timer-mode" data-mode="pomodoro">Pomodoro</button>
+      <button class="${timerMode==='stopwatch'?'active':''}" data-action="timer-mode" data-mode="stopwatch" ${pomodoroActive?'disabled title="Pause or finish the pomodoro timer first"':''}>Stopwatch</button>
+      <button class="${timerMode==='pomodoro'?'active':''}" data-action="timer-mode" data-mode="pomodoro" ${stopwatchActive?'disabled title="Stop or discard the stopwatch session first"':''}>Pomodoro</button>
     </div>
   </div>
+  ${stopwatchActive?`<div style="font-size:12px;color:var(--ink-soft);margin:-14px 0 16px;">Stopwatch is running, so Pomodoro is locked until you stop or discard this session.</div>`:''}
+  ${pomodoroActive?`<div style="font-size:12px;color:var(--ink-soft);margin:-14px 0 16px;">Pomodoro is running, so Stopwatch is locked until you pause or finish this timer.</div>`:''}
   <div class="grid2">
     <div class="card timerwrap">
       <button class="fs-toggle-btn" data-action="open-timer-fullscreen" title="Full screen" aria-label="Expand to full screen">
@@ -1862,6 +1985,22 @@ function fsFxMarkup(palette, frac){
   }
   if(palette==='lavender'){
     return `<div class="fs-fx"><div class="fs-breathe" style="width:280px;height:280px;left:50%;top:50%;margin:-140px 0 0 -140px;"></div></div>`;
+  }
+  if(palette==='dusk'){
+    let fireflies='';
+    for(let i=0;i<14;i++){
+      const size=(3+Math.random()*3).toFixed(1);
+      fireflies+=`<div class="fs-firefly" style="width:${size}px;height:${size}px;left:${(Math.random()*100).toFixed(1)}%;top:${(10+Math.random()*75).toFixed(1)}%;animation-duration:${(3+Math.random()*3).toFixed(1)}s;animation-delay:${(Math.random()*4).toFixed(1)}s;"></div>`;
+    }
+    return `<div class="fs-fx">${fireflies}</div>`;
+  }
+  if(palette==='twilight'){
+    let stars='';
+    for(let i=0;i<22;i++){
+      const size=(1+Math.random()*2).toFixed(1);
+      stars+=`<div class="fs-star" style="width:${size}px;height:${size}px;left:${(Math.random()*100).toFixed(1)}%;top:${(Math.random()*70).toFixed(1)}%;animation-duration:${(2+Math.random()*3).toFixed(1)}s;animation-delay:${(Math.random()*3).toFixed(1)}s;"></div>`;
+    }
+    return `<div class="fs-fx">${stars}</div>`;
   }
   return `<div class="fs-fx"></div>`; // ledger + terminal use pseudo-element glows only
 }
@@ -2629,8 +2768,8 @@ function renderSettings(){
     </div>
     <div style="border-top:1px solid var(--line);padding-top:12px;">
       <div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;line-height:1.55;">
-        <strong style="color:var(--ink);">Sync</strong> is additive and safe: your existing subjects, schedule, study log, and homework are never edited, overwritten, or duplicated — only what's missing here gets pulled in, so an edit or a delete you made never reaches the server this way.
-        <strong style="color:var(--ink);">Upload</strong> is the fix for that: it pushes this device's data as-is, and the cloud copy becomes an exact replacement — edits and deletions included. Only use it once this device is the one you trust most, since anything unsynced on other devices is discarded.
+        <strong style="color:var(--ink);">Sync</strong> treats your data in two ways: subjects and study log entries only ever merge — nothing already recorded (on this device or the server) is ever edited, overwritten, or duplicated, only what's missing gets pulled in. Schedule, homework, and questions work differently — every sync pushes this device's current copy of those three and replaces the cloud's, edits and deletions included, so reschedules and deletes actually take effect.
+        <strong style="color:var(--ink);">Upload</strong> goes further: it overwrites everything, including subjects and the study log, so the cloud becomes an exact match of this device. Only use it once this device is the one you trust most, since anything unsynced on other devices — even merged subjects or study log entries — is discarded.
       </div>
       <button class="btn" id="server-upload-btn" data-action="upload-now">Upload (overwrite cloud)</button>
     </div>
@@ -2687,6 +2826,16 @@ function renderSettings(){
         <div class="theme-preview" style="background:#EFF6FC;"><span style="background:#4E9B85;"></span><span style="background:#5B8FDD;"></span></div>
         Sky
         <div class="theme-desc">Solid pastel</div>
+      </div>
+      <div class="theme-opt ${sett.palette==='dusk'?'sel':''}" data-action="set-palette" data-palette="dusk">
+        <div class="theme-preview" style="background:#211D25;"><span style="background:#8FBFA3;"></span><span style="background:#D998AA;"></span></div>
+        Dusk
+        <div class="theme-desc">Dark dusty pastel</div>
+      </div>
+      <div class="theme-opt ${sett.palette==='twilight'?'sel':''}" data-action="set-palette" data-palette="twilight">
+        <div class="theme-preview" style="background:#1A1F30;"><span style="background:#8ED9C4;"></span><span style="background:#A7B3F2;"></span></div>
+        Twilight
+        <div class="theme-desc">Dark cool pastel</div>
       </div>
     </div>
   </div>
@@ -2872,10 +3021,16 @@ document.body.addEventListener('click', async function(e){
     scheduleSave(); closeModal(); render(); return;
   }
 
-  if(action==='timer-mode'){ timerMode=el.dataset.mode; render(); return; }
+  if(action==='timer-mode'){
+    if(el.disabled) return;
+    if(el.dataset.mode==='pomodoro' && state.activeSession){ toast('Stop or discard the current stopwatch session first.'); return; }
+    if(el.dataset.mode==='stopwatch' && timer.running){ toast('Pause or finish the pomodoro timer first.'); return; }
+    timerMode=el.dataset.mode; render(); return;
+  }
   if(action==='open-timer-fullscreen'){ openTimerFullscreen(); return; }
   if(action==='close-timer-fullscreen'){ closeTimerFullscreen(); return; }
   if(action==='start-stopwatch'){
+    if(timer.running){ toast('Pause or finish the pomodoro timer first.'); return; }
     const sel=document.getElementById('sw-subject');
     const topicEl=document.getElementById('sw-topic');
     startStopwatch(sel?sel.value:undefined, topicEl?topicEl.value.trim():'');
@@ -2885,12 +3040,14 @@ document.body.addEventListener('click', async function(e){
   if(action==='discard-stopwatch'){ if(confirm('Discard this session without logging it?')) stopStopwatch(true); return; }
 
   if(action==='timer-start'){
+    if(state.activeSession){ toast('Stop or discard the current stopwatch session first.'); return; }
     const sel=document.getElementById('timer-subject');
     const topicEl=document.getElementById('pomo-topic');
     if(sel) timer.subjectId=sel.value;
     if(topicEl) timer.topic=topicEl.value;
     if(!timer.subjectId) timer.subjectId=state.subjects[0]?.id;
     if(!timer.running){ timer.running=true; timer.intervalId=setInterval(tickTimer,1000); }
+    timerMode='pomodoro';
     render(); return;
   }
   if(action==='timer-pause'){ timer.running=false; clearInterval(timer.intervalId); render(); return; }
