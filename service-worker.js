@@ -4,7 +4,7 @@
 // cleanup step only ever touches caches belonging to *this* (beta) build,
 // never the main app's cache, even though they share an origin.
 const CACHE_PREFIX = 'ledger-beta-cache-';
-const CACHE_NAME = CACHE_PREFIX + 'v19';
+const CACHE_NAME = CACHE_PREFIX + 'v23';
 const APP_SHELL = [
   './index.html',
   './manifest.json',

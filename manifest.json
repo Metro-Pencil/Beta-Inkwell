@@ -1,7 +1,7 @@
 {
-  "name": "Ledger BETA — Study & Schedule",
-  "short_name": "Ledger BETA",
-  "description": "Beta testing version of Ledger — offline study and schedule planner. Separate install from the main app.",
+  "name": "Ledger — Study & Schedule",
+  "short_name": "Ledger",
+  "description": "Ledger — offline study and schedule planner. Separate install from the main app.",
   "start_url": "./index.html",
   "scope": "./",
   "id": "./index.html",
