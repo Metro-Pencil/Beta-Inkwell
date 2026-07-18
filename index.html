@@ -851,6 +851,7 @@ textarea{width:100%;resize:vertical;min-height:64px;}
     <p>A study &amp; schedule planner that keeps every hour, assignment, and streak in one file — on your device, not a server. Open your existing ledger file or start a new one.</p>
     <div class="gateactions">
       <button class="btn primary" data-action="open-file">Open my ledger file</button>
+      <button class="btn" data-action="cloud-login">Log in with sync code</button>
       <button class="btn" data-action="new-file">Start a new ledger</button>
     </div>
     <div class="gatenote" id="gateSupportNote"></div>
@@ -888,7 +889,7 @@ textarea{width:100%;resize:vertical;min-height:64px;}
       </div>
       <button class="btn primary small" id="syncBtn" data-action="sync-now">
         <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"/></svg>
-        Sync to file
+        <span id="syncBtnLabel">Sync to file</span>
       </button>
     </div>
     <main id="main"></main>
@@ -915,8 +916,8 @@ if('serviceWorker' in navigator){
 }
 
 /* ============================= DATA LAYER ============================= */
-const APP_VERSION='3.8';
-const APP_CODENAME='Inkwell';
+const APP_VERSION='3.9';
+const APP_CODENAME='Keyring';
 // The ONE intentional difference between the main and beta deployments'
 // index.html: everything else stays byte-identical. Set to 'beta' in the
 // beta copy only, so the version display below reads e.g. "Beta 3.4"
@@ -1060,6 +1061,11 @@ let photoLockedRaw=null;      // raw {locked:true,...} wrapper waiting for a pas
 let photoLockKey=null;        // derived CryptoKey, held in memory only — never written to disk
 let photoLockMeta=null;       // {saltB64, iterations} for the currently-active lock, needed to re-encrypt on save
 let photoLockLastWrapper=null;// last known-good locked wrapper on disk, used to verify a password before changing/removing it
+let pendingLockedImport=null; // {parsed, sourceHandle, sourceName} awaiting a password to decrypt during photo import
+// true when this session's data came from "Log in" (Worker URL + sync code) on the gate screen,
+// rather than a local file. There's no fileHandle in this mode, so saves go to a per-account
+// device cache (localStorage) instead, and the syncbar's button talks to the cloud instead of disk.
+let cloudMode=false;
 // active=true from the moment a session first starts until Reset or Finish&log — stays true
 // through pauses and through the automatic work->break->work handoff, so the subject select
 // (which checks `active`, not `running`) can't be changed mid-session by pausing and swapping.
@@ -1116,13 +1122,26 @@ async function saveFile(auto){
 function scheduleSave(){
   setSaveIndicator(false);
   clearTimeout(saveTimeout);
-  saveTimeout=setTimeout(()=>saveFile(true),500);
+  // Cloud-login sessions never autosave to the network — that would blow through the
+  // Cloudflare KV daily request budget in no time. Instead every edit gets debounced into
+  // the device cache (localStorage) only, so nothing's lost if the tab closes before the
+  // person taps "Sync to cloud" themselves; the cloud copy only ever changes on that tap.
+  saveTimeout=setTimeout(()=>{ if(cloudMode) saveCloudCache(); else saveFile(true); },500);
 }
 function setSaveIndicator(saved,downloaded){
   const dot=document.getElementById('syncDot');
   const status=document.getElementById('syncStatus');
   if(!dot) return;
   if(downloaded){dot.className='savedot';status.textContent='Downloaded — replace old file';updateSyncTime();return;}
+  if(cloudMode){
+    // Deliberately blunt: this reads "Not synced" the moment anything changes and stays that
+    // way until the person taps Sync themselves — never a live/auto status, since a truer
+    // "synced" claim would need another network round trip we're not allowed to spend here.
+    if(saved){dot.className='savedot';status.textContent='Synced';}
+    else{dot.className='savedot pending';status.textContent='Not synced — tap Sync to cloud';}
+    updateSyncTime();
+    return;
+  }
   if(saved){dot.className='savedot';status.textContent='Synced';}
   else{dot.className='savedot pending';status.textContent=fileHandle?'Saving…':'Not synced — click Sync';}
   updateSyncTime();
@@ -1151,6 +1170,7 @@ async function openFile(){
       if(!looksLikeLedgerFile(parsed) && !confirm('This file doesn\'t look like a Ledger file — no subjects, schedule, homework, or logs found inside it. Open it anyway?')) return;
       state=migrateState(parsed);
       fileHandle=handle;
+      cloudMode=false;
       photoState=null; photoFileHandle=null;
       photoLockedRaw=null; photoLockKey=null; photoLockMeta=null; photoLockLastWrapper=null;
       lastSavedAt=Date.now();
@@ -1162,6 +1182,7 @@ async function openFile(){
 }
 async function newFile(){
   state=defaultState();
+  cloudMode=false;
   photoState=null; photoFileHandle=null;
   photoLockedRaw=null; photoLockKey=null; photoLockMeta=null; photoLockLastWrapper=null;
   if(supportsFSAccess){
@@ -1177,6 +1198,7 @@ async function newFile(){
   }
 }
 async function pickSaveLocation(){
+  cloudMode=false;
   if(!supportsFSAccess){ downloadFile(); lastSavedAt=Date.now(); setSaveIndicator(true,true); return; }
   try{
     const handle=await window.showSaveFilePicker({suggestedName:'ledger-data.json',types:[{description:'Ledger data',accept:{'application/json':['.json']}}]});
@@ -1188,6 +1210,10 @@ async function pickSaveLocation(){
     toast('Saved to '+handle.name);
   }catch(err){ if(err.name!=='AbortError') toast(err.message); }
 }
+function updateSyncBtnLabel(){
+  const label=document.getElementById('syncBtnLabel');
+  if(label) label.textContent = cloudMode ? 'Sync to cloud' : 'Sync to file';
+}
 function onFileReady(name){
   document.getElementById('gate').style.display='none';
   document.getElementById('app').style.display='flex';
@@ -1195,7 +1221,23 @@ function onFileReady(name){
   resetTimerForLoadedFile();
   applyTheme();
   buildNav();
+  updateSyncBtnLabel();
   setSaveIndicator(true);
+  updateLiveSessionBadge();
+  if(state.activeSession) ensureStopwatchTicking();
+  render();
+}
+// Mirror of onFileReady() for a cloud-login session: same screen handoff, but there's no
+// fileHandle and the syncbar talks to the Worker instead of disk — see cloudLogin() below.
+function onCloudReady(code){
+  document.getElementById('gate').style.display='none';
+  document.getElementById('app').style.display='flex';
+  document.getElementById('syncFileName').textContent='Cloud · '+code;
+  resetTimerForLoadedFile();
+  applyTheme();
+  buildNav();
+  updateSyncBtnLabel();
+  setSaveIndicator(false);
   updateLiveSessionBadge();
   if(state.activeSession) ensureStopwatchTicking();
   render();
@@ -1385,6 +1427,7 @@ async function serverSyncNow(){
     }
     await putResp.json().catch(()=>null);
 
+    if(cloudMode){ lastSavedAt=Date.now(); setSaveIndicator(true); saveCloudCache(); }
     render();
     const added=subjResult.addedCount+logResult.addedCount;
     const pulled=blockResult.pulled+hwResult.pulled+qResult.pulled;
@@ -1395,6 +1438,7 @@ async function serverSyncNow(){
     if(pushed>0) parts.push(`${pushed} new item${pushed===1?'':'s'} pushed up`);
     toast(parts.length? 'Synced — '+parts.join(', ')+'.' : 'Synced — everything already matched.');
   }catch(err){
+    if(cloudMode) setSaveIndicator(false);
     toast('Sync failed: '+err.message);
   }finally{
     serverSyncInFlight=false;
@@ -1423,6 +1467,7 @@ async function serverUploadNow(){
       throw new Error('Server responded with '+resp.status+(errText?': '+errText.slice(0,120):''));
     }
     await resp.json();
+    if(cloudMode){ lastSavedAt=Date.now(); setSaveIndicator(true); saveCloudCache(); }
     toast('Uploaded — the cloud copy now exactly matches this device.');
   }catch(err){
     toast('Upload failed: '+err.message);
@@ -1447,6 +1492,63 @@ function generateSyncCode(){
   const words='amber,cedar,delta,ember,flint,grove,heron,ivory,jade,lumen,maple,north,onyx,pearl,quartz,ridge,slate,timber,umber,violet'.split(',');
   const pick=()=>words[Math.floor(Math.random()*words.length)];
   return `${pick()}-${pick()}-${Math.floor(1000+Math.random()*9000)}`;
+}
+
+/* ============================= CLOUD LOGIN (gate-screen shortcut, device-cached) =============================
+   "Log in with sync code" is a second way into the app besides opening a local file: paste the same
+   Worker URL + sync code used for regular sync, and this device adopts the merged cloud copy as its
+   active ledger — no local file at all. Because there's no fileHandle to write to, every edit in this
+   mode is debounced into localStorage (the device cache) instead, so a forgotten tab close never loses
+   work; only tapping "Sync to cloud" (here, or the syncbar/Settings button once inside) ever touches
+   the network, in line with keeping Worker/KV requests to a deliberate, manual minimum. */
+function cloudCacheKey(url,code){
+  return 'ledgerCloudCache::'+String(url||'').trim().replace(/\/+$/,'')+'::'+String(code||'').trim();
+}
+function saveCloudCache(){
+  if(!cloudMode || !state) return;
+  try{
+    localStorage.setItem(cloudCacheKey(state.settings.syncServerUrl, state.settings.syncCode), JSON.stringify({cachedAt:Date.now(), state}));
+  }catch(err){ /* localStorage full or unavailable — nothing more we can do locally */ }
+}
+function loadCloudCache(url,code){
+  try{
+    const raw=localStorage.getItem(cloudCacheKey(url,code));
+    if(!raw) return null;
+    const parsed=JSON.parse(raw);
+    return (parsed && parsed.state) ? parsed.state : null;
+  }catch(err){ return null; }
+}
+function lastCloudUrl(){ try{ return localStorage.getItem('ledgerLastCloudUrl')||''; }catch(err){ return ''; } }
+function lastCloudCode(){ try{ return localStorage.getItem('ledgerLastCloudCode')||''; }catch(err){ return ''; } }
+function cloudLoginModalHtml(){
+  return `<h2 style="margin:0 0 10px;">Log in with sync code</h2>
+  <p style="font-size:13px;color:var(--ink-soft);line-height:1.55;margin:0 0 16px;">
+    Pulls your ledger straight from the cloud using your Worker URL and sync code — no local file needed. This device keeps a cached copy of your edits so nothing's lost even if you close the app before syncing again, but it only actually talks to the server when you tap Sync.
+  </p>
+  <div class="field"><label>Worker URL</label><input type="text" id="login-sync-url" placeholder="https://your-worker.workers.dev" value="${esc(lastCloudUrl())}"></div>
+  <div class="field"><label>Sync code</label><input type="text" id="login-sync-code" placeholder="e.g. amber-cedar-4821" value="${esc(lastCloudCode())}"></div>
+  <div class="modalactions">
+    <button class="btn" data-action="close-modal">Cancel</button>
+    <button class="btn primary" id="cloud-login-btn" data-action="confirm-cloud-login">Log in &amp; sync</button>
+  </div>`;
+}
+async function cloudLogin(url, code){
+  // If this device has cached a session for this exact URL+code before (e.g. it logged in here
+  // previously and had unsynced edits when the tab closed), start from that instead of blank —
+  // otherwise start from a genuinely empty ledger so the merge below only ever adds what the
+  // cloud actually has, never this device's placeholder demo subjects.
+  const cached=loadCloudCache(url, code);
+  state=cached ? migrateState(cached) : defaultState();
+  if(!cached) state.subjects=[];
+  fileHandle=null;
+  cloudMode=true;
+  photoState=null; photoFileHandle=null;
+  photoLockedRaw=null; photoLockKey=null; photoLockMeta=null; photoLockLastWrapper=null;
+  state.settings.syncServerUrl=url;
+  state.settings.syncCode=code;
+  try{ localStorage.setItem('ledgerLastCloudUrl', url); localStorage.setItem('ledgerLastCloudCode', code); }catch(err){}
+  onCloudReady(code);
+  await serverSyncNow();
 }
 
 /* ============================= STOPWATCH (persisted real-time session) ============================= */
@@ -1512,6 +1614,7 @@ document.getElementById('fileInput').addEventListener('change',async e=>{
     if(!looksLikeLedgerFile(parsed) && !confirm('This file doesn\'t look like a Ledger file — no subjects, schedule, homework, or logs found inside it. Open it anyway?')){ e.target.value=''; return; }
     state=migrateState(parsed);
     fileHandle=null;
+    cloudMode=false;
     photoState=null; photoFileHandle=null;
     photoLockedRaw=null; photoLockKey=null; photoLockMeta=null; photoLockLastWrapper=null;
     onFileReady(file.name+' (imported — Save to download updates)');
@@ -1616,7 +1719,7 @@ function buildNav(){
 function openModal(html){
   document.getElementById('modalRoot').innerHTML=`<div class="modal-backdrop" data-action="close-modal"><div class="modal">${html}</div></div>`;
 }
-function closeModal(){ document.getElementById('modalRoot').innerHTML=''; pendingPhotoData=null; stopWebcamStream(); viewingPhotoId=null; }
+function closeModal(){ document.getElementById('modalRoot').innerHTML=''; pendingPhotoData=null; pendingLockedImport=null; stopWebcamStream(); viewingPhotoId=null; }
 document.addEventListener('keydown', (e)=>{
   if(!viewingPhotoId) return;
   const tag=(document.activeElement && document.activeElement.tagName) || '';
@@ -1639,6 +1742,7 @@ function subjOptions(selected){
 function render(){
   buildNav();
   applyTheme();
+  updateSyncBtnLabel();
   const main=document.getElementById('main');
   if(activeTab==='today') main.innerHTML=renderToday();
   else if(activeTab==='schedule') main.innerHTML=renderSchedule();
@@ -2415,6 +2519,18 @@ async function unlockPhotosWithPassword(password){
     return true;
   }catch(err){ return false; } // wrong password → GCM auth failure, or a corrupt file
 }
+// Like unlockPhotosWithPassword, but for a one-off wrapper being imported from elsewhere rather
+// than the session's own locked file — doesn't touch photoLockKey/photoLockMeta/photoLockedRaw,
+// so the destination's own lock (and password) is left completely alone either way.
+async function decryptPhotoWrapper(wrapper, password){
+  try{
+    const salt=b64ToBuf(wrapper.salt), iv=b64ToBuf(wrapper.iv);
+    const key=await deriveLockKey(password, salt, wrapper.iterations);
+    const ptBuf=await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, b64ToBuf(wrapper.ciphertext));
+    const parsed=JSON.parse(new TextDecoder().decode(ptBuf));
+    return Array.isArray(parsed.photos) ? parsed.photos : [];
+  }catch(err){ return null; } // wrong password, or a corrupt/foreign file
+}
 async function verifyLockPassword(password){
   if(!photoLockLastWrapper) return false;
   try{
@@ -2588,14 +2704,23 @@ async function importPhotosFlow(){
 }
 async function handleImportedPhotoJSON(parsed, sourceHandle, sourceName){
   if(isLockedPhotoFile(parsed)){
-    toast('That file is password-locked. Open it as your linked photos file and unlock it first, then import from elsewhere.');
+    // Ask for *that file's* password right away instead of bouncing the person off to link it
+    // and unlock it first — decrypt it here, then fold its photos into whichever photo store is
+    // already active, which keeps its own password (or lack of one) exactly as it was.
+    pendingLockedImport={parsed, sourceHandle, sourceName};
+    openModal(importPhotoUnlockModalHtml(sourceName));
     return;
   }
   let candidates=null;
   if(parsed && Array.isArray(parsed.photos)) candidates=parsed.photos;
   else if(Array.isArray(parsed)) candidates=parsed;
   if(!candidates){ toast('That doesn’t look like a ledger or photos file.'); return; }
-
+  await mergeImportedPhotos(candidates, sourceHandle, sourceName, parsed);
+}
+// Shared by both the plain-file and password-unlocked import paths: dedupes by data URL, adds
+// the rest into the currently active photo store (photoState if linked, else state.photos), and
+// offers to scrub the source file afterward. Never touches the destination's own lock/password.
+async function mergeImportedPhotos(candidates, sourceHandle, sourceName, originalParsedForWipe){
   const dest=getPhotosArray();
   const existingUrls=new Set(dest.map(p=>p.dataUrl));
   let added=0, skipped=0;
@@ -2614,14 +2739,25 @@ async function handleImportedPhotoJSON(parsed, sourceHandle, sourceName){
 
   if(added>0){ markPhotosDirty(); render(); }
   toast(added>0
-    ? `Imported ${added} photo${added===1?'':'s'}${skipped?` (${skipped} skipped)`:''}.`
+    ? `Imported ${added} photo${added===1?'':'s'}${skipped?` (${skipped} skipped)`:''} into your main photo file.`
     : `No new photos found${skipped?` (${skipped} skipped)`:''}.`);
 
   if(!sourceHandle || added===0) return; // no handle (fallback input) or nothing to clean up
 
   const wipe=confirm(`Photos copied in. Erase the photos inside "${sourceName}" now so no extra copy is left behind on that device? This can’t be undone.`);
   if(!wipe) return;
-  await scrubSourceFile(sourceHandle, parsed);
+  await scrubSourceFile(sourceHandle, originalParsedForWipe);
+}
+function importPhotoUnlockModalHtml(sourceName){
+  return `<h2 style="margin:0 0 10px;">Locked photos file</h2>
+  <p style="font-size:13px;color:var(--ink-soft);line-height:1.55;margin:0 0 14px;">
+    "${esc(sourceName||'This file')}" is password-locked. Enter its password below — once unlocked, its photos are copied straight into your main photo file, which keeps its own password (or lack of one) exactly as it is.
+  </p>
+  <div class="field"><label>Password for that file</label><input type="password" id="import-unlock-pw" autofocus></div>
+  <div class="modalactions">
+    <button class="btn" data-action="cancel-import-unlock">Cancel</button>
+    <button class="btn primary" data-action="confirm-import-unlock">Unlock &amp; import</button>
+  </div>`;
 }
 async function scrubSourceFile(handle, originalParsed){
   let perm='granted';
@@ -2941,7 +3077,7 @@ function renderSettings(){
   <div class="card">
     <h3 style="margin:0 0 6px;font-size:14px;">Import photos</h3>
     <div style="font-size:12px;color:var(--ink-soft);margin-bottom:12px;line-height:1.55;">
-      Took photos on a different device — like opening the Netlify link on a laptop and starting a fresh ledger there? Pick that file here. Any photos in it get copied into ${photosLinked()?'your linked photos file':'this ledger'}, skipping ones you already have. If your browser allows it, you’ll then be offered the chance to erase the photos from the source file so a stray copy isn’t left behind on that other device.
+      Took photos on a different device — like opening the Netlify link on a laptop and starting a fresh ledger there? Pick that file here. Any photos in it get copied into ${photosLinked()?'your linked photos file':'this ledger'}, skipping ones you already have — if that file is password-locked, you'll just be asked for its password first. If your browser allows it, you’ll then be offered the chance to erase the photos from the source file so a stray copy isn’t left behind on that other device.
     </div>
     <button class="btn primary" data-action="import-photos">Choose a ledger or photos file\u2026</button>
   </div>
@@ -3071,11 +3207,25 @@ document.body.addEventListener('click', async function(e){
     clearTimeout(saveTimeout);
     const btn=document.getElementById('syncBtn');
     if(btn) btn.classList.add('spinning');
-    await saveFile(false);
+    if(cloudMode) await serverSyncNow();
+    else await saveFile(false);
     if(btn) btn.classList.remove('spinning');
     return;
   }
   if(action==='new-file') return newFile();
+  if(action==='cloud-login'){ openModal(cloudLoginModalHtml()); return; }
+  if(action==='confirm-cloud-login'){
+    const urlInput=document.getElementById('login-sync-url');
+    const codeInput=document.getElementById('login-sync-code');
+    const url=(urlInput?urlInput.value:'').trim();
+    const code=(codeInput?codeInput.value:'').trim();
+    if(!url || !code){ toast('Enter your Worker URL and sync code.'); return; }
+    const btn=document.getElementById('cloud-login-btn');
+    if(btn){ btn.textContent='Logging in…'; btn.disabled=true; }
+    await cloudLogin(url, code);
+    closeModal();
+    return;
+  }
   if(action==='close-modal'){ if(e.target===el) closeModal(); return; }
 
   if(action==='gen-sync-code'){
@@ -3365,6 +3515,20 @@ document.body.addEventListener('click', async function(e){
     if(!pw){ toast('Enter your password.'); return; }
     const ok=await unlockPhotosWithPassword(pw);
     if(ok){ finishPendingLegacyMigration(); toast('Unlocked.'); render(); } else { toast('Incorrect password.'); }
+    return;
+  }
+  if(action==='cancel-import-unlock'){ pendingLockedImport=null; closeModal(); return; }
+  if(action==='confirm-import-unlock'){
+    const input=document.getElementById('import-unlock-pw');
+    const pw=input?input.value:'';
+    if(!pw){ toast('Enter that file’s password.'); return; }
+    if(!pendingLockedImport){ closeModal(); return; }
+    const photos=await decryptPhotoWrapper(pendingLockedImport.parsed, pw);
+    if(!photos){ toast('Incorrect password.'); return; }
+    const {sourceHandle, sourceName, parsed}=pendingLockedImport;
+    pendingLockedImport=null;
+    closeModal();
+    await mergeImportedPhotos(photos, sourceHandle, sourceName, parsed);
     return;
   }
   if(action==='set-photo-password'){ openModal(setPhotoPasswordModalHtml()); return; }
