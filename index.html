@@ -2648,6 +2648,44 @@ async function linkPhotoFile(mode){
     render();
   }catch(err){ if(err.name!=='AbortError') toast(err.message); }
 }
+// Shared by migrateLegacyPhotos and finishPendingLegacyMigration: folds a batch of
+// already-valid photo objects into photoState.photos, skipping any whose image data
+// (dataUrl) already exists there. Without this, linking a photo file that already
+// contains some of these photos (e.g. it's the real main file, and the "legacy" copies
+// got there via an earlier import) would duplicate every one of them.
+function mergeLegacyIntoPhotoState(legacy){
+  const existingUrls=new Set(photoState.photos.map(p=>p.dataUrl));
+  let added=0, skipped=0;
+  (legacy||[]).forEach(p=>{
+    if(!p || !p.dataUrl || existingUrls.has(p.dataUrl)){ skipped++; return; }
+    photoState.photos.push(p);
+    existingUrls.add(p.dataUrl);
+    added++;
+  });
+  return {added, skipped};
+}
+function legacyMoveToast(added, skipped){
+  return skipped>0
+    ? `Moved ${added} photo${added===1?'':'s'} to a separate file (${skipped} already there, skipped).`
+    : 'Photos moved to a separate file.';
+}
+// One-off cleanup for duplicates that already made it in — e.g. from linking a photo file
+// that already had some of the same photos in it before this was fixed to dedupe automatically.
+// Keeps the first copy of each exact image and removes any later exact matches.
+function dedupePhotosNow(){
+  if(photoLockedRaw){ toast('Unlock your photos first.'); return; }
+  const arr=getPhotosArray();
+  const seen=new Set();
+  const toRemove=[];
+  arr.forEach((p,i)=>{
+    if(!p || !p.dataUrl) return;
+    if(seen.has(p.dataUrl)) toRemove.push(i);
+    else seen.add(p.dataUrl);
+  });
+  for(let i=toRemove.length-1;i>=0;i--) arr.splice(toRemove[i],1);
+  if(toRemove.length>0){ markPhotosDirty(); render(); toast(`Removed ${toRemove.length} duplicate photo${toRemove.length===1?'':'s'}.`); }
+  else toast('No duplicate photos found.');
+}
 async function migrateLegacyPhotos(mode){
   const legacy=(state.photos||[]).slice();
   await linkPhotoFile(mode);
@@ -2659,22 +2697,22 @@ async function migrateLegacyPhotos(mode){
     }
     return;
   }
-  photoState.photos=photoState.photos.concat(legacy);
+  const {added,skipped}=mergeLegacyIntoPhotoState(legacy);
   state.photos=[];
   scheduleSave();
   schedulePhotoSave();
-  toast('Photos moved to a separate file.');
+  toast(legacyMoveToast(added,skipped));
   render();
 }
 let pendingLegacyPhotos=null;
 function finishPendingLegacyMigration(){
   if(!pendingLegacyPhotos || !photoState) return;
-  photoState.photos=photoState.photos.concat(pendingLegacyPhotos);
+  const {added,skipped}=mergeLegacyIntoPhotoState(pendingLegacyPhotos);
   state.photos=[];
   pendingLegacyPhotos=null;
   scheduleSave();
   schedulePhotoSave();
-  toast('Photos moved to a separate file.');
+  toast(legacyMoveToast(added,skipped));
 }
 /* ============================= IMPORT PHOTOS FROM ANOTHER FILE ============================= */
 // Covers the "photos taken on another device" case: someone opens the app fresh
@@ -3080,6 +3118,7 @@ function renderSettings(){
       Took photos on a different device — like opening the Netlify link on a laptop and starting a fresh ledger there? Pick that file here. Any photos in it get copied into ${photosLinked()?'your linked photos file':'this ledger'}, skipping ones you already have — if that file is password-locked, you'll just be asked for its password first. If your browser allows it, you’ll then be offered the chance to erase the photos from the source file so a stray copy isn’t left behind on that other device.
     </div>
     <button class="btn primary" data-action="import-photos">Choose a ledger or photos file\u2026</button>
+    <button class="btn" data-action="dedupe-photos" style="margin-left:8px;">Remove duplicate photos</button>
   </div>
   <div class="card">
     <h3 style="margin:0 0 6px;font-size:14px;">Sync with another device</h3>
@@ -3469,6 +3508,7 @@ document.body.addEventListener('click', async function(e){
   if(action==='migrate-photos-new'){ await migrateLegacyPhotos('create'); return; }
   if(action==='migrate-photos-open'){ await migrateLegacyPhotos('open'); return; }
   if(action==='import-photos'){ await importPhotosFlow(); return; }
+  if(action==='dedupe-photos'){ dedupePhotosNow(); return; }
   if(action==='save-photo'){
     if(!pendingPhotoData){ closeModal(); return; }
     const note=document.getElementById('mf-photo-note').value.trim();
