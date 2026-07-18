@@ -480,6 +480,63 @@
 @keyframes twilightTwinkle{0%,100%{opacity:.3;}50%{opacity:.65;}}
 [data-palette="twilight"] .card{ backdrop-filter:blur(2px); }
 
+/* ===== THEME: Diagnostic — dark oxblood terminal, dithered readouts, monospace HUD ===== */
+[data-palette="diagnostic"]{
+  --paper:#241412;
+  --paper-2:#2E1917;
+  --paper-3:#3B211E;
+  --ink:#E8DDC8;
+  --ink-soft:#9C8570;
+  --line:#4A2B26;
+  --accent-study:#8FA88A;
+  --accent-study-soft:#28352A;
+  --accent-due:#C0574C;
+  --accent-due-soft:#3D211D;
+  --accent-gold:#C99A52;
+  --accent-gold-soft:#3A2E1C;
+  --accent-info:#7C93A6;
+  --accent-info-soft:#232E36;
+  --radius:3px;
+  --radius-sm:2px;
+  --font-display:'JetBrains Mono',ui-monospace,monospace;
+  --font-body:'JetBrains Mono',ui-monospace,monospace;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  --shadow:none;
+  --on-study:#1B2119;
+  --on-due:#F4EAD9;
+}
+[data-palette="diagnostic"] body{
+  background-image:
+    radial-gradient(rgba(232,221,200,0.055) 1px, transparent 1.3px),
+    repeating-linear-gradient(0deg, rgba(232,221,200,0.02) 0px, rgba(232,221,200,0.02) 1px, transparent 1px, transparent 3px);
+  background-size:13px 13px, auto;
+  letter-spacing:.01em;
+}
+[data-palette="diagnostic"] h1,[data-palette="diagnostic"] h2,[data-palette="diagnostic"] h3,[data-palette="diagnostic"] .display{
+  text-transform:uppercase; font-weight:700; letter-spacing:.06em;
+}
+[data-palette="diagnostic"] h1::before,[data-palette="diagnostic"] h2::before,[data-palette="diagnostic"] h3::before{
+  content:'// '; color:var(--accent-study); opacity:.6;
+}
+[data-palette="diagnostic"] .card{ position:relative; box-shadow:none; }
+[data-palette="diagnostic"] .card::before,[data-palette="diagnostic"] .card::after{
+  content:''; position:absolute; width:7px; height:7px; opacity:.55; pointer-events:none;
+}
+[data-palette="diagnostic"] .card::before{ top:-1px; left:-1px; border-top:1px solid var(--accent-study); border-left:1px solid var(--accent-study); }
+[data-palette="diagnostic"] .card::after{ bottom:-1px; right:-1px; border-bottom:1px solid var(--accent-study); border-right:1px solid var(--accent-study); }
+[data-palette="diagnostic"] .btn{ text-transform:uppercase; letter-spacing:.05em; font-size:12px; font-weight:600; }
+[data-palette="diagnostic"] .navitem{ text-transform:uppercase; font-size:12px; letter-spacing:.05em; font-weight:600; }
+[data-palette="diagnostic"] .navitem.active{ box-shadow:0 0 9px rgba(143,168,138,0.35); }
+[data-palette="diagnostic"] .tag{ text-transform:uppercase; letter-spacing:.04em; }
+[data-palette="diagnostic"] .brand-mark,[data-palette="diagnostic"] .swatch,[data-palette="diagnostic"] .wg-block,[data-palette="diagnostic"] .cal-cell{ border-radius:var(--radius-sm); }
+[data-palette="diagnostic"] .barrow .track{ border:1px solid var(--line); }
+[data-palette="diagnostic"] .barrow .fill{
+  border-radius:0;
+  background-image:radial-gradient(rgba(0,0,0,.4) 1px, transparent 1.3px) !important;
+  background-size:3px 3px !important;
+}
+[data-palette="diagnostic"] .barrow .val{ text-transform:uppercase; }
+[data-palette="diagnostic"] .empty{ border-style:solid; }
 
 *{box-sizing:border-box;}
 body{margin:0;}
@@ -730,6 +787,14 @@ textarea{width:100%;resize:vertical;min-height:64px;}
 .timer-fs.fs-twilight::before{content:'';position:absolute;top:-20%;right:-15%;width:70%;height:70%;border-radius:50%;background:radial-gradient(circle,rgba(167,179,242,0.22),rgba(142,217,196,0.08) 55%,transparent 72%);z-index:0;}
 .timer-fs.fs-twilight .fs-star{position:absolute;border-radius:50%;background:#fff;animation:fsTwinkle 3s ease-in-out infinite;}
 
+/* --- diagnostic: dot-grid HUD + scanning oscilloscope line --- */
+.timer-fs.fs-diagnostic{background:var(--paper);}
+.timer-fs.fs-diagnostic::before{content:'';position:absolute;inset:0;background-image:radial-gradient(rgba(232,221,200,0.06) 1px,transparent 1.3px);background-size:13px 13px;z-index:0;}
+.timer-fs.fs-diagnostic .fs-scan{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent-study),transparent);opacity:.55;animation:fsDiagScan 4.5s linear infinite;z-index:0;}
+@keyframes fsDiagScan{0%{top:0%;}100%{top:100%;}}
+.timer-fs.fs-diagnostic .fs-time{letter-spacing:0;}
+.timer-fs.fs-diagnostic .fs-label,.timer-fs.fs-diagnostic .fs-subject{text-transform:uppercase;letter-spacing:.14em;}
+
 /* ===== Stats ===== */
 .barrow{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
 .barrow .lbl{width:110px;font-size:12.5px;font-weight:500;flex-shrink:0;}
@@ -916,12 +981,17 @@ if('serviceWorker' in navigator){
 }
 
 /* ============================= DATA LAYER ============================= */
-const APP_VERSION='3.9';
+// Versioning: semantic versioning from here on (MAJOR.MINOR.PATCH), GitHub-release
+// style — tag releases as vX.Y.Z. Bump MAJOR for breaking changes, MINOR for new
+// features (e.g. a new theme), PATCH for fixes. Previous versions used a plain
+// MAJOR.MINOR number (e.g. "3.9"); 3.9 -> 3.9.0 is the semver equivalent, and this
+// release bumps MINOR to 3.10.0 for the new Diagnostic theme.
+const APP_VERSION='3.10.0';
 const APP_CODENAME='Keyring';
 // The ONE intentional difference between the main and beta deployments'
 // index.html: everything else stays byte-identical. Set to 'beta' in the
-// beta copy only, so the version display below reads e.g. "Beta 3.4"
-// instead of just "3.4" — makes it unmistakable which build you're in,
+// beta copy only, so the version display below reads e.g. "Beta 3.10.0"
+// instead of just "3.10.0" — makes it unmistakable which build you're in,
 // on top of the already-different app name/icon.
 const BUILD_CHANNEL='beta';
 const DISPLAY_VERSION = BUILD_CHANNEL ? `Beta ${APP_VERSION}` : APP_VERSION;
@@ -2292,6 +2362,9 @@ function fsFxMarkup(palette, frac){
     }
     return `<div class="fs-fx">${stars}</div>`;
   }
+  if(palette==='diagnostic'){
+    return `<div class="fs-fx"><div class="fs-scan"></div></div>`;
+  }
   return `<div class="fs-fx"></div>`; // ledger + terminal use pseudo-element glows only
 }
 function renderFullscreenTimer(){
@@ -3203,6 +3276,11 @@ function renderSettings(){
         <div class="theme-preview" style="background:#1A1F30;"><span style="background:#8ED9C4;"></span><span style="background:#A7B3F2;"></span></div>
         Twilight
         <div class="theme-desc">Moonlit &amp; starry</div>
+      </div>
+      <div class="theme-opt ${sett.palette==='diagnostic'?'sel':''}" data-action="set-palette" data-palette="diagnostic">
+        <div class="theme-preview" style="background:#241412;"><span style="background:#8FA88A;"></span><span style="background:#C0574C;"></span></div>
+        Diagnostic
+        <div class="theme-desc">Dithered terminal readout</div>
       </div>
     </div>
   </div>
