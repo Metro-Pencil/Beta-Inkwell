@@ -335,8 +335,8 @@
   --accent-gold-soft:#3A2E1C;
   --accent-info:#7C93A6;
   --accent-info-soft:#232E36;
-  --radius:3px;
-  --radius-sm:2px;
+  --radius:0px;
+  --radius-sm:0px;
   --font-display:'JetBrains Mono',ui-monospace,monospace;
   --font-body:'JetBrains Mono',ui-monospace,monospace;
   --font-mono:'JetBrains Mono',ui-monospace,monospace;
@@ -346,11 +346,13 @@
 }
 [data-palette="diagnostic"] body{
   background-image:
-    radial-gradient(rgba(232,221,200,0.055) 1px, transparent 1.3px),
+    linear-gradient(rgba(232,221,200,0.05) 2px, transparent 2px),
+    linear-gradient(90deg, rgba(232,221,200,0.05) 2px, transparent 2px),
     repeating-linear-gradient(0deg, rgba(232,221,200,0.02) 0px, rgba(232,221,200,0.02) 1px, transparent 1px, transparent 3px);
-  background-size:13px 13px, auto;
+  background-size:13px 13px, 13px 13px, auto;
   letter-spacing:.01em;
 }
+[data-palette="diagnostic"] svg{ stroke-linecap:square; stroke-linejoin:miter; }
 [data-palette="diagnostic"] h1,[data-palette="diagnostic"] h2,[data-palette="diagnostic"] h3,[data-palette="diagnostic"] .display{
   text-transform:uppercase; font-weight:700; letter-spacing:.06em;
 }
@@ -359,23 +361,26 @@
 }
 [data-palette="diagnostic"] .card{ position:relative; box-shadow:none; }
 [data-palette="diagnostic"] .card::before,[data-palette="diagnostic"] .card::after{
-  content:''; position:absolute; width:7px; height:7px; opacity:.55; pointer-events:none;
+  content:''; position:absolute; width:8px; height:8px; opacity:.55; pointer-events:none;
 }
-[data-palette="diagnostic"] .card::before{ top:-1px; left:-1px; border-top:1px solid var(--accent-study); border-left:1px solid var(--accent-study); }
-[data-palette="diagnostic"] .card::after{ bottom:-1px; right:-1px; border-bottom:1px solid var(--accent-study); border-right:1px solid var(--accent-study); }
-[data-palette="diagnostic"] .btn{ text-transform:uppercase; letter-spacing:.05em; font-size:12px; font-weight:600; }
-[data-palette="diagnostic"] .navitem{ text-transform:uppercase; font-size:12px; letter-spacing:.05em; font-weight:600; }
+[data-palette="diagnostic"] .card::before{ top:-1px; left:-1px; border-top:2px solid var(--accent-study); border-left:2px solid var(--accent-study); }
+[data-palette="diagnostic"] .card::after{ bottom:-1px; right:-1px; border-bottom:2px solid var(--accent-study); border-right:2px solid var(--accent-study); }
+[data-palette="diagnostic"] .btn{ text-transform:uppercase; letter-spacing:.05em; font-size:12px; font-weight:600; border-radius:0; box-shadow:2px 2px 0 var(--line); }
+[data-palette="diagnostic"] .btn:active{ box-shadow:1px 1px 0 var(--line); transform:translate(1px,1px); }
+[data-palette="diagnostic"] .btn.primary{ box-shadow:2px 2px 0 rgba(0,0,0,.3); }
+[data-palette="diagnostic"] .btn.primary:active{ box-shadow:1px 1px 0 rgba(0,0,0,.3); transform:translate(1px,1px); }
+[data-palette="diagnostic"] .navitem{ text-transform:uppercase; font-size:12px; letter-spacing:.05em; font-weight:600; border-radius:0; }
 [data-palette="diagnostic"] .navitem.active{ box-shadow:0 0 9px rgba(143,168,138,0.35); }
-[data-palette="diagnostic"] .tag{ text-transform:uppercase; letter-spacing:.04em; }
-[data-palette="diagnostic"] .brand-mark,[data-palette="diagnostic"] .swatch,[data-palette="diagnostic"] .wg-block,[data-palette="diagnostic"] .cal-cell{ border-radius:var(--radius-sm); }
-[data-palette="diagnostic"] .barrow .track{ border:1px solid var(--line); }
+[data-palette="diagnostic"] .tag{ text-transform:uppercase; letter-spacing:.04em; border-radius:0; }
+[data-palette="diagnostic"] .brand-mark,[data-palette="diagnostic"] .swatch,[data-palette="diagnostic"] .wg-block,[data-palette="diagnostic"] .cal-cell{ border-radius:0; }
+[data-palette="diagnostic"] .barrow .track{ border:1px solid var(--line); border-radius:0; }
 [data-palette="diagnostic"] .barrow .fill{
   border-radius:0;
-  background-image:radial-gradient(rgba(0,0,0,.4) 1px, transparent 1.3px) !important;
-  background-size:3px 3px !important;
+  background-image:repeating-conic-gradient(rgba(0,0,0,.45) 0% 25%, transparent 0% 50%) !important;
+  background-size:4px 4px !important;
 }
 [data-palette="diagnostic"] .barrow .val{ text-transform:uppercase; }
-[data-palette="diagnostic"] .empty{ border-style:solid; }
+[data-palette="diagnostic"] .empty{ border-style:solid; border-radius:0; }
 
 *{box-sizing:border-box;}
 body{margin:0;}
@@ -612,16 +617,27 @@ textarea{width:100%;resize:vertical;min-height:64px;}
 
 /* --- diagnostic: dot-grid HUD + scanning oscilloscope line --- */
 .timer-fs.fs-diagnostic{background:var(--paper);}
-.timer-fs.fs-diagnostic::before{content:'';position:absolute;inset:0;background-image:radial-gradient(rgba(232,221,200,0.06) 1px,transparent 1.3px);background-size:13px 13px;z-index:0;}
-.timer-fs.fs-diagnostic .fs-scan{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent-study),transparent);opacity:.55;animation:fsDiagScan 4.5s linear infinite;z-index:0;}
+.timer-fs.fs-diagnostic::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(232,221,200,0.06) 2px,transparent 2px),linear-gradient(90deg,rgba(232,221,200,0.06) 2px,transparent 2px);background-size:13px 13px;z-index:0;}
+.timer-fs.fs-diagnostic .fs-scan{position:absolute;left:0;right:0;height:3px;background:repeating-linear-gradient(90deg,var(--accent-study) 0 4px,transparent 4px 8px);opacity:.5;animation:fsDiagScan 4.5s steps(24) infinite;z-index:0;}
 @keyframes fsDiagScan{0%{top:0%;}100%{top:100%;}}
 .timer-fs.fs-diagnostic .fs-time{letter-spacing:0;}
 .timer-fs.fs-diagnostic .fs-label,.timer-fs.fs-diagnostic .fs-subject{text-transform:uppercase;letter-spacing:.14em;}
-.timer-fs.fs-diagnostic .fs-eyewrap{position:absolute;left:50%;top:40%;width:min(58vw,320px);height:min(32vw,175px);transform:translate(-50%,-50%);z-index:0;}
-.timer-fs.fs-diagnostic .fs-eye{position:relative;width:100%;height:100%;background:var(--ink);opacity:.14;clip-path:ellipse(50% 42% at 50% 50%);animation:fsEyeBlink 5.5s ease-in-out infinite;}
-.timer-fs.fs-diagnostic .fs-eye-iris{position:absolute;left:50%;top:50%;width:36%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:var(--paper);}
-.timer-fs.fs-diagnostic .fs-eye-pupil{position:absolute;left:50%;top:50%;width:40%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:var(--ink);}
-@keyframes fsEyeBlink{0%,88%,100%{transform:scaleY(1);}93%{transform:scaleY(.05);}96%{transform:scaleY(1);}}
+.timer-fs.fs-diagnostic .fs-ringwrap circle{stroke-width:7;}
+.timer-fs.fs-diagnostic .fs-ring-bg{stroke-dasharray:5 4;}
+.timer-fs.fs-diagnostic .fs-ring-fg{stroke-linecap:butt;}
+.timer-fs.fs-diagnostic .fs-eyewrap{position:absolute;left:50%;top:39%;width:min(56vw,285px);height:min(34vw,171px);transform:translate(-50%,-50%);z-index:0;image-rendering:pixelated;}
+.timer-fs.fs-diagnostic .fs-eye-frame{position:absolute;inset:0;display:grid;grid-template-columns:repeat(15,1fr);grid-template-rows:repeat(9,1fr);}
+.timer-fs.fs-diagnostic .fs-eye-frame i{display:block;}
+.timer-fs.fs-diagnostic .fs-eye-frame.open{animation:fsEyeShowOpen 5.5s steps(1,end) infinite;}
+.timer-fs.fs-diagnostic .fs-eye-frame.closed{opacity:0;animation:fsEyeShowClosed 5.5s steps(1,end) infinite;}
+@keyframes fsEyeShowOpen{0%,87%,100%{opacity:1;}89%,96%{opacity:0;}}
+@keyframes fsEyeShowClosed{0%,87%,100%{opacity:0;}89%,96%{opacity:1;}}
+.timer-fs.fs-diagnostic .fs-eye-frame i.s{background:var(--ink-soft);opacity:.4;}
+.timer-fs.fs-diagnostic .fs-eye-frame i.i{background:var(--accent-study);opacity:.55;}
+.timer-fs.fs-diagnostic .fs-eye-frame i.p{background:var(--paper-3);opacity:.9;}
+.timer-fs.fs-diagnostic .fs-eye-frame i.g{background:var(--ink);opacity:.7;}
+.timer-fs.fs-diagnostic .fs-eye-frame i.l{background:var(--ink-soft);opacity:.4;}
+.timer-fs.fs-diagnostic .fs-eye-frame i.ls{background:var(--ink-soft);opacity:.2;}
 .timer-fs.fs-diagnostic .fs-lettergrid{position:absolute;left:50%;bottom:68px;transform:translateX(-50%);display:grid;grid-template-columns:repeat(12,1fr);gap:4px;width:min(88vw,540px);font-family:var(--font-mono);font-size:11px;font-weight:700;z-index:0;}
 .timer-fs.fs-diagnostic .fs-gridcell{display:flex;align-items:center;justify-content:center;aspect-ratio:1;border:1px solid var(--line);color:var(--ink-soft);opacity:.55;}
 .timer-fs.fs-diagnostic .fs-gridcell.hit{background:var(--accent-study-soft);color:var(--accent-study);opacity:.9;border-color:var(--accent-study);}
@@ -817,7 +833,7 @@ if('serviceWorker' in navigator){
 // features (e.g. a new theme), PATCH for fixes. Previous versions used a plain
 // MAJOR.MINOR number (e.g. "3.9"); 3.9 -> 3.9.0 is the semver equivalent, and this
 // release bumps MINOR to 3.10.0 for the new Diagnostic theme.
-const APP_VERSION='3.11.1';
+const APP_VERSION='3.11.2';
 const APP_CODENAME='Keyring';
 // The ONE intentional difference between the main and beta deployments'
 // index.html: everything else stays byte-identical. Set to 'beta' in the
@@ -2121,6 +2137,31 @@ function closeTimerFullscreen(){
   document.getElementById('fullscreenRoot').innerHTML='';
   document.body.style.overflow='';
 }
+function buildPixelEyeGrid(open){
+  const W=15,H=9,cx=7,cy=4;
+  let out='';
+  for(let y=0;y<H;y++){
+    for(let x=0;x<W;x++){
+      let cls='';
+      if(open){
+        const sclera=((x-cx)/6.5)**2+((y-cy)/3.6)**2;
+        const iris=((x-cx)/2.7)**2+((y-cy)/2.7)**2;
+        const pupil=((x-cx)/1.15)**2+((y-cy)/1.15)**2;
+        if(sclera<=1){
+          if(pupil<=1) cls=(x===cx-1&&y===cy)?'g':'p';
+          else if(iris<=1) cls='i';
+          else cls='s';
+        }
+      } else {
+        const span=6.3-Math.abs(y-cy)*2.6;
+        if(y===cy && Math.abs(x-cx)<=6) cls='l';
+        else if((y===cy-1||y===cy+1) && Math.abs(x-cx)<=span) cls='ls';
+      }
+      out += cls ? `<i class="${cls}"></i>` : `<i></i>`;
+    }
+  }
+  return out;
+}
 function fsFxMarkup(palette, frac){
   frac = frac || 0;
   if(palette==='neon'){
@@ -2172,7 +2213,10 @@ function fsFxMarkup(palette, frac){
     }
     return `<div class="fs-fx">
       <div class="fs-scan"></div>
-      <div class="fs-eyewrap"><div class="fs-eye"><div class="fs-eye-iris"><div class="fs-eye-pupil"></div></div></div></div>
+      <div class="fs-eyewrap">
+        <div class="fs-eye-frame open">${buildPixelEyeGrid(true)}</div>
+        <div class="fs-eye-frame closed">${buildPixelEyeGrid(false)}</div>
+      </div>
       <div class="fs-lettergrid">${cells}</div>
     </div>`;
   }
