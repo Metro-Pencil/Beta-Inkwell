@@ -741,9 +741,17 @@ textarea{width:100%;resize:vertical;min-height:64px;}
 }
 :focus-visible{outline:2px solid var(--accent-info);outline-offset:2px;}
 @media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important;}}
+
+/* ===== Accessibility utilities ===== */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+.skip-link{position:absolute;left:10px;top:-50px;background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:0 0 8px 8px;z-index:200;font-size:13.5px;font-weight:600;text-decoration:none;transition:top .15s;}
+.skip-link:focus{top:0;}
+[role="button"],[role="switch"],[role="checkbox"]{cursor:pointer;}
+.modal:focus{outline:none;}
 </style>
 </head>
 <body>
+<a href="#main" class="skip-link">Skip to main content</a>
 
 <div id="gate" class="gate">
   <div class="gatecard">
@@ -774,7 +782,7 @@ textarea{width:100%;resize:vertical;min-height:64px;}
 <div id="app" style="display:none;">
   <aside class="sidebar">
     <div class="brand">
-      <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="M7.5 13.5h3M7.5 17h6"/></svg></div>
+      <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="M7.5 13.5h3M7.5 17h6"/></svg></div>
       <div>
         <div class="brand-name">Ledger</div>
         <div class="brand-sub">Study &amp; Schedule</div>
@@ -785,26 +793,26 @@ textarea{width:100%;resize:vertical;min-height:64px;}
   <div class="content-col">
     <div id="syncbar">
       <div class="syncbar-file">
-        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
         <span id="syncFileName"></span>
       </div>
-      <div class="syncbar-status">
-        <span class="savedot" id="syncDot"></span>
+      <div class="syncbar-status" role="status" aria-live="polite">
+        <span class="savedot" id="syncDot" aria-hidden="true"></span>
         <span id="syncStatus">Saved</span>
         <span class="syncbar-time mono" id="syncTime"></span>
       </div>
       <div class="live-session" id="liveSessionBadge" style="display:none;">
-        <span class="dot-pulse"></span>
+        <span class="dot-pulse" aria-hidden="true"></span>
         <span id="liveSessionSubject"></span>
         <span class="mono js-live-elapsed">00:00:00</span>
         <button class="btn ghost" data-action="stop-stopwatch">Stop</button>
       </div>
       <button class="btn primary small" id="syncBtn" data-action="sync-now">
-        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"/></svg>
         <span id="syncBtnLabel">Sync to file</span>
       </button>
     </div>
-    <main id="main"></main>
+    <main id="main" tabindex="-1"></main>
   </div>
 </div>
 
@@ -814,7 +822,7 @@ textarea{width:100%;resize:vertical;min-height:64px;}
 <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
 <input type="file" id="galleryInput" accept="image/*" style="display:none">
 <div id="modalRoot"></div>
-<div id="toastRoot"></div>
+<div id="toastRoot" role="status" aria-live="polite" aria-atomic="false"></div>
 <div id="fullscreenRoot"></div>
 
 <script>
@@ -831,9 +839,12 @@ if('serviceWorker' in navigator){
 // Versioning: semantic versioning from here on (MAJOR.MINOR.PATCH), GitHub-release
 // style — tag releases as vX.Y.Z. Bump MAJOR for breaking changes, MINOR for new
 // features (e.g. a new theme), PATCH for fixes. Previous versions used a plain
-// MAJOR.MINOR number (e.g. "3.9"); 3.9 -> 3.9.0 is the semver equivalent, and this
-// release bumps MINOR to 3.10.0 for the new Diagnostic theme.
-const APP_VERSION='3.11.2';
+// MAJOR.MINOR number (e.g. "3.9"); 3.9 -> 3.9.0 is the semver equivalent. 3.10.0
+// added the Diagnostic theme; this release bumps MINOR to 3.12.0 for an
+// accessibility pass across the app (keyboard navigation, screen-reader
+// labelling, focus management on modals) and to stop the sync code field from
+// displaying a previously-saved code in plain text.
+const APP_VERSION='3.12.0';
 const APP_CODENAME='Keyring';
 // The ONE intentional difference between the main and beta deployments'
 // index.html: everything else stays byte-identical. Set to 'beta' in the
@@ -1442,8 +1453,8 @@ function cloudLoginModalHtml(){
   <p style="font-size:13px;color:var(--ink-soft);line-height:1.55;margin:0 0 16px;">
     Pulls your ledger straight from the cloud using your Worker URL and sync code — no local file needed. This device keeps a cached copy of your edits so nothing's lost even if you close the app before syncing again, but it only actually talks to the server when you tap Sync.
   </p>
-  <div class="field"><label>Worker URL</label><input type="text" id="login-sync-url" placeholder="https://your-worker.workers.dev" value="${esc(lastCloudUrl())}"></div>
-  <div class="field"><label>Sync code</label><input type="text" id="login-sync-code" placeholder="e.g. amber-cedar-4821" value="${esc(lastCloudCode())}"></div>
+  <div class="field"><label for="login-sync-url">Worker URL</label><input type="text" id="login-sync-url" placeholder="https://your-worker.workers.dev" value="${esc(lastCloudUrl())}"></div>
+  <div class="field"><label for="login-sync-code">Sync code</label><input type="password" id="login-sync-code" placeholder="e.g. amber-cedar-4821" value="${esc(lastCloudCode())}" autocomplete="off"></div>
   <div class="modalactions">
     <button class="btn" data-action="close-modal">Cancel</button>
     <button class="btn primary" id="cloud-login-btn" data-action="confirm-cloud-login">Log in &amp; sync</button>
@@ -1629,14 +1640,65 @@ const TABS=[
 ];
 function buildNav(){
   const nav=document.getElementById('navlist');
-  nav.innerHTML=TABS.map(t=>`<button class="navitem${t.id===activeTab?' active':''}" data-action="nav" data-tab="${t.id}"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">${t.icon}</svg><span>${t.label}</span></button>`).join('');
+  nav.setAttribute('aria-label','Main');
+  nav.innerHTML=TABS.map(t=>`<button class="navitem${t.id===activeTab?' active':''}" data-action="nav" data-tab="${t.id}" aria-label="${t.label}"${t.id===activeTab?' aria-current="page"':''}><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${t.icon}</svg><span>${t.label}</span></button>`).join('');
 }
 
-/* ============================= MODAL ============================= */
-function openModal(html){
-  document.getElementById('modalRoot').innerHTML=`<div class="modal-backdrop" data-action="close-modal"><div class="modal">${html}</div></div>`;
+/* ============================= MODAL =============================
+   Modals are plain innerHTML swaps (no <dialog> element, no per-modal JS), so the
+   accessibility behaviors a real dialog gets for free — a labelled dialog role,
+   focus moving in on open and back out on close, Tab staying inside while it's
+   open, Escape closing it — are all handled centrally here instead of in each of
+   the ~15 xModalHtml() functions that only ever produce the inner content. */
+let modalReturnFocusEl=null;
+function focusableIn(container){
+  return Array.from(container.querySelectorAll('input, textarea, select, button, a[href], [tabindex]'))
+    .filter(el=>!el.disabled && el.tabIndex!==-1 && el.offsetParent!==null);
 }
-function closeModal(){ document.getElementById('modalRoot').innerHTML=''; pendingPhotoData=null; pendingLockedImport=null; stopWebcamStream(); viewingPhotoId=null; }
+function openModal(html){
+  const root=document.getElementById('modalRoot');
+  const wasAlreadyOpen=!!root.querySelector('.modal');
+  // If a modal is refreshing itself in place (e.g. toggling a switch re-renders the
+  // same modal), try to land focus back on the same field rather than jumping to the
+  // top — otherwise remember what had focus on the page so it can be restored on close.
+  const prevFocusedId=document.activeElement && document.activeElement.id;
+  if(!wasAlreadyOpen) modalReturnFocusEl=document.activeElement;
+  root.innerHTML=`<div class="modal-backdrop" data-action="close-modal"><div class="modal" data-action="noop" role="dialog" aria-modal="true" tabindex="-1"></div></div>`;
+  const modalEl=root.querySelector('.modal');
+  modalEl.innerHTML=html;
+  const heading=modalEl.querySelector('h1,h2');
+  if(heading){ if(!heading.id) heading.id='modalTitle'; modalEl.setAttribute('aria-labelledby', heading.id); }
+  let toFocus=wasAlreadyOpen && prevFocusedId ? modalEl.querySelector('#'+CSS.escape(prevFocusedId)) : null;
+  if(!toFocus) toFocus=modalEl.querySelector('input:not([type=hidden]), textarea, select, button, a[href], [tabindex]:not([tabindex="-1"])');
+  (toFocus||modalEl).focus({preventScroll:true});
+}
+function closeModal(){
+  document.getElementById('modalRoot').innerHTML='';
+  pendingPhotoData=null; pendingLockedImport=null; stopWebcamStream(); viewingPhotoId=null;
+  const toRestore=modalReturnFocusEl;
+  modalReturnFocusEl=null;
+  // Deferred: an action that closes a modal is almost always followed, in the same
+  // synchronous call, by a full render() of the page underneath — restoring focus
+  // has to wait until after that finishes or it'd just be wiped out again.
+  setTimeout(()=>{
+    if(toRestore && document.contains(toRestore) && typeof toRestore.focus==='function'){ toRestore.focus({preventScroll:true}); }
+    else { const m=document.getElementById('main'); if(m) m.focus({preventScroll:true}); }
+  },0);
+}
+document.addEventListener('keydown', (e)=>{
+  const modalEl=document.querySelector('#modalRoot .modal');
+  if(!modalEl) return;
+  if(e.key==='Escape'){ e.preventDefault(); closeModal(); return; }
+  if(e.key!=='Tab') return;
+  const items=focusableIn(modalEl);
+  if(!items.length) return;
+  const first=items[0], last=items[items.length-1];
+  if(e.shiftKey){
+    if(document.activeElement===first || !modalEl.contains(document.activeElement)){ e.preventDefault(); last.focus(); }
+  }else{
+    if(document.activeElement===last || !modalEl.contains(document.activeElement)){ e.preventDefault(); first.focus(); }
+  }
+});
 document.addEventListener('keydown', (e)=>{
   if(!viewingPhotoId) return;
   const tag=(document.activeElement && document.activeElement.tagName) || '';
@@ -1647,6 +1709,40 @@ document.addEventListener('keydown', (e)=>{
 document.addEventListener('keydown', (e)=>{
   if(!timerFullscreen) return;
   if(e.key==='Escape'){ e.preventDefault(); closeTimerFullscreen(); }
+});
+/* Pressing Enter in a single-line field submits the nearest primary action, the way
+   a real <form> would — this app has none, since every action is dispatched through
+   the data-action click-delegation below. Relies on two conventions that hold
+   everywhere in this file: inside a modal, the actionable button is always the LAST
+   one in .modalactions (Cancel/Delete come first); outside a modal, a field's own
+   .card has exactly one .btn.primary, which is the thing Enter should trigger. */
+const ENTER_SUBMIT_TYPES=new Set(['text','password','email','tel','url','search','number','date','time','datetime-local','month','week']);
+document.addEventListener('keydown', function(e){
+  if(e.key!=='Enter' || e.isComposing) return;
+  const t=e.target;
+  if(!(t instanceof HTMLInputElement) || !ENTER_SUBMIT_TYPES.has(t.type)) return;
+  const modalEl=t.closest('.modal');
+  let target=null;
+  if(modalEl){
+    const actions=modalEl.querySelectorAll('.modalactions .btn');
+    target=actions[actions.length-1]||null;
+  }else{
+    const card=t.closest('.card');
+    if(card) target=card.querySelector('.btn.primary');
+  }
+  if(target && !target.disabled){ e.preventDefault(); target.click(); }
+});
+/* Enter/Space activation for the custom controls below that aren't native buttons
+   (color swatches, toggle switches, calendar cells, photo tiles, etc.) — anything
+   given role+tabindex to make it focusable needs this to make it operable too. */
+document.body.addEventListener('keydown', function(e){
+  if(e.key!==' ' && e.key!=='Spacebar' && e.key!=='Enter') return;
+  const el=e.target.closest('[role][tabindex]');
+  if(!el) return;
+  const tag=el.tagName;
+  if(tag==='BUTTON' || tag==='A' || tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT') return;
+  e.preventDefault();
+  el.click();
 });
 
 /* ============================= HELPERS: subjects ============================= */
@@ -1735,7 +1831,7 @@ function renderQuickStartActive(){
   return `
   <div style="display:flex;align-items:center;gap:8px;"><span class="dot" style="background:${s?s.color:'#999'}"></span><span style="font-weight:600;">${s?esc(s.name):'—'}</span></div>
   <div class="stopwatch-display js-live-elapsed" style="font-size:36px;margin:8px 0;">00:00:00</div>
-  <input type="text" id="sw-topic" value="${esc(state.activeSession.topic||'')}" placeholder="What are you studying? (optional)" style="width:100%;margin-bottom:10px;">
+  <input type="text" id="sw-topic" aria-label="Study topic (optional)" value="${esc(state.activeSession.topic||'')}" placeholder="What are you studying? (optional)" style="width:100%;margin-bottom:10px;">
   <button class="btn primary" data-action="stop-stopwatch" style="width:100%;justify-content:center;">Stop &amp; log session</button>
   `;
 }
@@ -1745,7 +1841,7 @@ function renderQuickStartIdle(){
   }
   return `
   <select id="sw-subject" style="width:100%;margin-bottom:8px;">${subjOptions(state.subjects[0]?.id)}</select>
-  <input type="text" id="sw-topic" placeholder="What are you studying? (optional)" style="width:100%;margin-bottom:10px;">
+  <input type="text" id="sw-topic" aria-label="Study topic (optional)" placeholder="What are you studying? (optional)" style="width:100%;margin-bottom:10px;">
   <button class="btn primary" data-action="start-stopwatch" style="width:100%;justify-content:center;">▶ Start studying</button>
   `;
 }
@@ -1771,8 +1867,8 @@ function renderSchedule(){
       ${isCurrentWeek?'':'<button class="btn small" data-action="week-today">This week</button>'}
       <button class="btn small" data-action="week-next">Next →</button>
       <div class="viewtoggle">
-        <button class="${scheduleViewMode==='week'?'active':''}" data-action="sched-view" data-mode="week">Week</button>
-        <button class="${scheduleViewMode==='list'?'active':''}" data-action="sched-view" data-mode="list">List</button>
+        <button class="${scheduleViewMode==='week'?'active':''}" data-action="sched-view" data-mode="week" aria-pressed="${scheduleViewMode==='week'}">Week</button>
+        <button class="${scheduleViewMode==='list'?'active':''}" data-action="sched-view" data-mode="list" aria-pressed="${scheduleViewMode==='list'}">List</button>
       </div>
       <button class="btn primary" data-action="add-block">+ Add block</button>
     </div>
@@ -1790,7 +1886,7 @@ function renderWeekGrid(){
     const h=Math.floor(slot/2), m=(slot%2)*30;
     const isHour=m===0;
     for(let day=0;day<7;day++){
-      cellsHtml+=`<div class="wg-cell${isHour?' hourline':''}" style="grid-row:${slot+2};grid-column:${day+2};" data-action="add-block" data-day="${day}" data-start="${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}"></div>`;
+      cellsHtml+=`<div class="wg-cell${isHour?' hourline':''}" style="grid-row:${slot+2};grid-column:${day+2};" data-action="add-block" data-day="${day}" data-start="${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}" aria-hidden="true"></div>`;
     }
   }
   const todayStr=todayISO();
@@ -1810,13 +1906,13 @@ function renderWeekGrid(){
     blocksOnDate(day,date).forEach(b=>{
       const s=subj(b.subjectId);
       const r1=rowLine(b.start), r2=rowLine(b.end);
-      blocksHtml+=`<div class="wg-block" style="grid-row:${r1} / ${r2};grid-column:${day+2};background:${s?s.color:'#888'};" data-action="edit-block" data-id="${b.id}"><span class="t">${b.start}–${b.end}${b.recurring===false?' · one-off':''}</span>${esc(b.label||(s?s.name:''))}</div>`;
+      blocksHtml+=`<div class="wg-block" style="grid-row:${r1} / ${r2};grid-column:${day+2};background:${s?s.color:'#888'};" data-action="edit-block" data-id="${b.id}" role="button" tabindex="0" aria-label="Edit block: ${esc(b.label||(s?s.name:'Study'))}, ${b.start} to ${b.end}"><span class="t">${b.start}–${b.end}${b.recurring===false?' · one-off':''}</span>${esc(b.label||(s?s.name:''))}</div>`;
     });
   }
   return `<div class="weekwrap"><div class="weekgrid" style="grid-template-rows:32px repeat(48,18px);">
     ${labelsHtml}${timeLabels}${cellsHtml}${blocksHtml}
   </div></div>
-  <div style="font-size:11.5px;color:var(--ink-soft);margin-top:8px;">Click an empty slot to add a block. Click a block to edit it.</div>`;
+  <div style="font-size:11.5px;color:var(--ink-soft);margin-top:8px;">Click an empty slot to add a block, or click a block to edit it. Using a keyboard or screen reader? The List view and the + Add block button above give you the same actions.</div>`;
 }
 function renderScheduleList(){
   let html='';
@@ -1826,7 +1922,7 @@ function renderScheduleList(){
     const blocks=blocksOnDate(idx,date).sort((a,b)=>a.start.localeCompare(b.start));
     const isToday=date===todayStr;
     html+=`<div class="listday"><h3>${DAY_NAMES_FULL[idx]} · ${fmtDate(date)}${isToday?' · Today':''}</h3><div class="card">`;
-    html+= blocks.length? blocks.map(b=>{const s=subj(b.subjectId);return `<div class="schedrow" style="cursor:pointer;" data-action="edit-block" data-id="${b.id}"><span class="dot" style="background:${s?s.color:'#999'}"></span><span class="schedtime mono">${b.start}–${b.end}</span><span class="schedlabel">${esc(b.label||(s?s.name:'Study'))}${b.recurring===false?' <span style="color:var(--ink-soft);font-weight:400;">(one-off)</span>':''}</span></div>`}).join('') : '<div class="empty">No blocks</div>';
+    html+= blocks.length? blocks.map(b=>{const s=subj(b.subjectId);return `<div class="schedrow" style="cursor:pointer;" data-action="edit-block" data-id="${b.id}" role="button" tabindex="0" aria-label="Edit block: ${esc(b.label||(s?s.name:'Study'))}, ${b.start} to ${b.end}"><span class="dot" style="background:${s?s.color:'#999'}"></span><span class="schedtime mono">${b.start}–${b.end}</span><span class="schedlabel">${esc(b.label||(s?s.name:'Study'))}${b.recurring===false?' <span style="color:var(--ink-soft);font-weight:400;">(one-off)</span>':''}</span></div>`}).join('') : '<div class="empty">No blocks</div>';
     html+='</div></div>';
   }
   return html;
@@ -1838,17 +1934,17 @@ function blockModalHtml(draft){
   const isEdit=!!draft.id;
   const times=timeOptions();
   return `<h2>${isEdit?'Edit block':'Add schedule block'}</h2>
-  <div class="field"><label>Subject</label><select id="mf-subject">${subjOptions(draft.subjectId)}</select></div>
-  <div class="field"><label>Label (optional)</label><input type="text" id="mf-label" value="${esc(draft.label)}" placeholder="e.g. Chapter review"></div>
+  <div class="field"><label for="mf-subject">Subject</label><select id="mf-subject">${subjOptions(draft.subjectId)}</select></div>
+  <div class="field"><label for="mf-label">Label (optional)</label><input type="text" id="mf-label" value="${esc(draft.label)}" placeholder="e.g. Chapter review"></div>
   <div class="togglerow" style="padding:6px 0;">
-    <span style="font-size:13px;">Repeats every week</span>
-    <div class="switch ${draft.recurring?'on':''}" data-action="toggle-block-recurring" data-id="${draft.id||''}"><div class="knob"></div></div>
+    <span style="font-size:13px;" id="mf-recurring-label">Repeats every week</span>
+    <div class="switch ${draft.recurring?'on':''}" id="mf-recurring-switch" data-action="toggle-block-recurring" data-id="${draft.id||''}" role="switch" tabindex="0" aria-checked="${draft.recurring?'true':'false'}" aria-labelledby="mf-recurring-label"><div class="knob"></div></div>
   </div>
-  <div id="mf-day-field" style="${draft.recurring?'':'display:none;'}"><div class="field"><label>Day of week</label><select id="mf-day">${DAY_NAMES_FULL.map((n,i)=>`<option value="${i}" ${i===draft.day?'selected':''}>${n}</option>`).join('')}</select></div></div>
-  <div id="mf-date-field" style="${draft.recurring?'display:none;':''}"><div class="field"><label>Date</label><input type="date" id="mf-date" value="${draft.date}"></div></div>
+  <div id="mf-day-field" style="${draft.recurring?'':'display:none;'}"><div class="field"><label for="mf-day">Day of week</label><select id="mf-day">${DAY_NAMES_FULL.map((n,i)=>`<option value="${i}" ${i===draft.day?'selected':''}>${n}</option>`).join('')}</select></div></div>
+  <div id="mf-date-field" style="${draft.recurring?'display:none;':''}"><div class="field"><label for="mf-date">Date</label><input type="date" id="mf-date" value="${draft.date}"></div></div>
   <div class="fieldrow">
-    <div class="field"><label>Start</label><select id="mf-start">${times.map(t=>`<option ${t===draft.start?'selected':''}>${t}</option>`).join('')}</select></div>
-    <div class="field"><label>End</label><select id="mf-end">${times.map(t=>`<option ${t===draft.end?'selected':''}>${t}</option>`).join('')}</select></div>
+    <div class="field"><label for="mf-start">Start</label><select id="mf-start">${times.map(t=>`<option ${t===draft.start?'selected':''}>${t}</option>`).join('')}</select></div>
+    <div class="field"><label for="mf-end">End</label><select id="mf-end">${times.map(t=>`<option ${t===draft.end?'selected':''}>${t}</option>`).join('')}</select></div>
   </div>
   <input type="hidden" id="mf-recurring" value="${draft.recurring?'1':'0'}">
   <div class="modalactions">
@@ -1883,9 +1979,9 @@ function renderHomework(){
     <button class="btn primary" data-action="add-homework">+ Add homework</button>
   </div>
   <div class="filterbar">
-    <select data-action="filter-hw" data-key="subject"><option value="all">All subjects</option>${state.subjects.map(s=>`<option value="${s.id}" ${hwFilters.subject===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select>
-    <select data-action="filter-hw" data-key="status"><option value="all">All statuses</option><option value="pending" ${hwFilters.status==='pending'?'selected':''}>Pending</option><option value="in-progress" ${hwFilters.status==='in-progress'?'selected':''}>In progress</option><option value="done" ${hwFilters.status==='done'?'selected':''}>Done</option></select>
-    <select data-action="filter-hw" data-key="priority"><option value="all">All priorities</option><option value="high" ${hwFilters.priority==='high'?'selected':''}>High</option><option value="med" ${hwFilters.priority==='med'?'selected':''}>Medium</option><option value="low" ${hwFilters.priority==='low'?'selected':''}>Low</option></select>
+    <select data-action="filter-hw" data-key="subject" aria-label="Filter by subject"><option value="all">All subjects</option>${state.subjects.map(s=>`<option value="${s.id}" ${hwFilters.subject===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select>
+    <select data-action="filter-hw" data-key="status" aria-label="Filter by status"><option value="all">All statuses</option><option value="pending" ${hwFilters.status==='pending'?'selected':''}>Pending</option><option value="in-progress" ${hwFilters.status==='in-progress'?'selected':''}>In progress</option><option value="done" ${hwFilters.status==='done'?'selected':''}>Done</option></select>
+    <select data-action="filter-hw" data-key="priority" aria-label="Filter by priority"><option value="all">All priorities</option><option value="high" ${hwFilters.priority==='high'?'selected':''}>High</option><option value="med" ${hwFilters.priority==='med'?'selected':''}>Medium</option><option value="low" ${hwFilters.priority==='low'?'selected':''}>Low</option></select>
   </div>
   ${items.length? items.map(h=>renderHwCard(h)).join('') : '<div class="empty">No homework matches these filters.</div>'}
   `;
@@ -1894,8 +1990,8 @@ function renderHwCard(h){
   const s=subj(h.subjectId);
   const overdue = h.status!=='done' && h.dueDate < todayISO();
   return `<div class="hwcard ${h.status==='done'?'done':''}">
-    <div class="chk ${h.status==='done'?'checked':''}" data-action="toggle-hw" data-id="${h.id}">${h.status==='done'?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 13l4 4L19 7"/></svg>':''}</div>
-    <div style="flex:1;cursor:pointer;" data-action="edit-homework" data-id="${h.id}">
+    <div class="chk ${h.status==='done'?'checked':''}" data-action="toggle-hw" data-id="${h.id}" role="checkbox" tabindex="0" aria-checked="${h.status==='done'}" aria-label="Mark '${esc(h.title)}' as ${h.status==='done'?'not done':'done'}">${h.status==='done'?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>':''}</div>
+    <div style="flex:1;cursor:pointer;" data-action="edit-homework" data-id="${h.id}" role="button" tabindex="0" aria-label="Edit homework: ${esc(h.title)}">
       <div class="hwtitle">${esc(h.title)}</div>
       <div class="hwmeta">
         <span class="tag" style="background:${s?s.color+'22':'#8882'};color:${s?s.color:'#888'}"><span class="dot" style="background:${s?s.color:'#888'}"></span>${s?esc(s.name):'—'}</span>
@@ -1910,14 +2006,14 @@ function renderHwCard(h){
 function homeworkModalHtml(hw){
   const h=hw||{id:null,subjectId:state.subjects[0]?.id,title:'',description:'',dueDate:todayISO(),priority:'med',status:'pending'};
   return `<h2>${hw?'Edit homework':'Add homework'}</h2>
-  <div class="field"><label>Title</label><input type="text" id="mf-title" value="${esc(h.title)}" placeholder="e.g. Problem set 4"></div>
-  <div class="field"><label>Subject</label><select id="mf-subject">${subjOptions(h.subjectId)}</select></div>
+  <div class="field"><label for="mf-title">Title</label><input type="text" id="mf-title" value="${esc(h.title)}" placeholder="e.g. Problem set 4"></div>
+  <div class="field"><label for="mf-subject">Subject</label><select id="mf-subject">${subjOptions(h.subjectId)}</select></div>
   <div class="fieldrow">
-    <div class="field"><label>Due date</label><input type="date" id="mf-due" value="${h.dueDate}"></div>
-    <div class="field"><label>Priority</label><select id="mf-priority"><option value="high" ${h.priority==='high'?'selected':''}>High</option><option value="med" ${h.priority==='med'?'selected':''}>Medium</option><option value="low" ${h.priority==='low'?'selected':''}>Low</option></select></div>
+    <div class="field"><label for="mf-due">Due date</label><input type="date" id="mf-due" value="${h.dueDate}"></div>
+    <div class="field"><label for="mf-priority">Priority</label><select id="mf-priority"><option value="high" ${h.priority==='high'?'selected':''}>High</option><option value="med" ${h.priority==='med'?'selected':''}>Medium</option><option value="low" ${h.priority==='low'?'selected':''}>Low</option></select></div>
   </div>
-  <div class="field"><label>Status</label><select id="mf-status"><option value="pending" ${h.status==='pending'?'selected':''}>Pending</option><option value="in-progress" ${h.status==='in-progress'?'selected':''}>In progress</option><option value="done" ${h.status==='done'?'selected':''}>Done</option></select></div>
-  <div class="field"><label>Notes (optional)</label><textarea id="mf-desc" placeholder="Details, links, chapters...">${esc(h.description)}</textarea></div>
+  <div class="field"><label for="mf-status">Status</label><select id="mf-status"><option value="pending" ${h.status==='pending'?'selected':''}>Pending</option><option value="in-progress" ${h.status==='in-progress'?'selected':''}>In progress</option><option value="done" ${h.status==='done'?'selected':''}>Done</option></select></div>
+  <div class="field"><label for="mf-desc">Notes (optional)</label><textarea id="mf-desc" placeholder="Details, links, chapters...">${esc(h.description)}</textarea></div>
   <div class="modalactions">
     ${hw?'<button class="btn danger" data-action="delete-homework" data-id="'+h.id+'">Delete</button>':''}
     <button class="btn" data-action="close-modal">Cancel</button>
@@ -1960,8 +2056,8 @@ function renderQuestions(){
     <button class="btn primary" data-action="add-question">+ Add question</button>
   </div>
   <div class="filterbar">
-    <select data-action="filter-q" data-key="subject"><option value="all">All subjects</option>${state.subjects.map(s=>`<option value="${s.id}" ${qFilters.subject===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select>
-    <select data-action="filter-q" data-key="status"><option value="all">All</option><option value="open" ${qFilters.status==='open'?'selected':''}>Unanswered</option><option value="answered" ${qFilters.status==='answered'?'selected':''}>Answered</option></select>
+    <select data-action="filter-q" data-key="subject" aria-label="Filter by subject"><option value="all">All subjects</option>${state.subjects.map(s=>`<option value="${s.id}" ${qFilters.subject===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select>
+    <select data-action="filter-q" data-key="status" aria-label="Filter by status"><option value="all">All</option><option value="open" ${qFilters.status==='open'?'selected':''}>Unanswered</option><option value="answered" ${qFilters.status==='answered'?'selected':''}>Answered</option></select>
   </div>
   ${groups.length? groups.map(g=>`
     <h3 style="margin:18px 0 10px;font-size:12.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;">${fmtGroupDate(g.date)}</h3>
@@ -1972,8 +2068,8 @@ function renderQuestions(){
 function renderQuestionCard(q){
   const s=subj(q.subjectId);
   return `<div class="hwcard ${q.answered?'done':''}">
-    <div class="chk ${q.answered?'checked':''}" data-action="toggle-question" data-id="${q.id}">${q.answered?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 13l4 4L19 7"/></svg>':''}</div>
-    <div style="flex:1;cursor:pointer;" data-action="edit-question" data-id="${q.id}">
+    <div class="chk ${q.answered?'checked':''}" data-action="toggle-question" data-id="${q.id}" role="checkbox" tabindex="0" aria-checked="${q.answered}" aria-label="Mark question as ${q.answered?'unanswered':'answered'}">${q.answered?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>':''}</div>
+    <div style="flex:1;cursor:pointer;" data-action="edit-question" data-id="${q.id}" role="button" tabindex="0" aria-label="Edit question: ${esc(q.text)}">
       <div class="hwtitle">${esc(q.text)}</div>
       <div class="hwmeta">
         <span class="tag" style="background:${s?s.color+'22':'#8882'};color:${s?s.color:'#888'}"><span class="dot" style="background:${s?s.color:'#888'}"></span>${s?esc(s.name):'—'}</span>
@@ -1986,10 +2082,10 @@ function renderQuestionCard(q){
 function questionModalHtml(q){
   const item=q||{id:null,subjectId:state.subjects[0]?.id,text:'',answered:false,answer:''};
   return `<h2>${q?'Edit question':'Add question'}</h2>
-  <div class="field"><label>Question</label><textarea id="mf-qtext" placeholder="What do I still need to figure out?">${esc(item.text)}</textarea></div>
-  <div class="field"><label>Subject</label><select id="mf-qsubject">${subjOptions(item.subjectId)}</select></div>
-  <div class="field"><label>Status</label><select id="mf-qstatus"><option value="open" ${!item.answered?'selected':''}>Unanswered</option><option value="answered" ${item.answered?'selected':''}>Answered</option></select></div>
-  <div class="field"><label>Answer (optional)</label><textarea id="mf-qanswer" placeholder="Fill this in once you've worked it out">${esc(item.answer)}</textarea></div>
+  <div class="field"><label for="mf-qtext">Question</label><textarea id="mf-qtext" placeholder="What do I still need to figure out?">${esc(item.text)}</textarea></div>
+  <div class="field"><label for="mf-qsubject">Subject</label><select id="mf-qsubject">${subjOptions(item.subjectId)}</select></div>
+  <div class="field"><label for="mf-qstatus">Status</label><select id="mf-qstatus"><option value="open" ${!item.answered?'selected':''}>Unanswered</option><option value="answered" ${item.answered?'selected':''}>Answered</option></select></div>
+  <div class="field"><label for="mf-qanswer">Answer (optional)</label><textarea id="mf-qanswer" placeholder="Fill this in once you've worked it out">${esc(item.answer)}</textarea></div>
   <div class="modalactions">
     ${q?'<button class="btn danger" data-action="delete-question" data-id="'+q.id+'">Delete</button>':''}
     <button class="btn" data-action="close-modal">Cancel</button>
@@ -2005,8 +2101,8 @@ function renderTimer(){
   return `
   <div class="pagehead"><div><h1>Timer</h1><div class="sub">Track a live study session, or use a focus/break pomodoro.</div></div>
     <div class="viewtoggle">
-      <button class="${timerMode==='stopwatch'?'active':''}" data-action="timer-mode" data-mode="stopwatch" ${pomodoroActive?'disabled title="Pause or finish the pomodoro timer first"':''}>Stopwatch</button>
-      <button class="${timerMode==='pomodoro'?'active':''}" data-action="timer-mode" data-mode="pomodoro" ${stopwatchActive?'disabled title="Stop or discard the stopwatch session first"':''}>Pomodoro</button>
+      <button class="${timerMode==='stopwatch'?'active':''}" data-action="timer-mode" data-mode="stopwatch" aria-pressed="${timerMode==='stopwatch'}" ${pomodoroActive?'disabled title="Pause or finish the pomodoro timer first"':''}>Stopwatch</button>
+      <button class="${timerMode==='pomodoro'?'active':''}" data-action="timer-mode" data-mode="pomodoro" aria-pressed="${timerMode==='pomodoro'}" ${stopwatchActive?'disabled title="Stop or discard the stopwatch session first"':''}>Pomodoro</button>
     </div>
   </div>
   ${stopwatchActive?`<div style="font-size:12px;color:var(--ink-soft);margin:-14px 0 16px;">Stopwatch is running, so Pomodoro is locked until you stop or discard this session.</div>`:''}
@@ -2014,19 +2110,19 @@ function renderTimer(){
   <div class="grid2">
     <div class="card timerwrap">
       <button class="fs-toggle-btn" data-action="open-timer-fullscreen" title="Full screen" aria-label="Expand to full screen">
-        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
       </button>
       ${timerMode==='stopwatch'?renderStopwatchPanel():renderPomodoroPanel()}
     </div>
     <div>
       <div class="card">
         <h3 style="margin:0 0 10px;font-size:14px;">Log past study time</h3>
-        <div class="field"><label>Subject</label><select id="ml-subject">${subjOptions(state.subjects[0]?.id)}</select></div>
+        <div class="field"><label for="ml-subject">Subject</label><select id="ml-subject">${subjOptions(state.subjects[0]?.id)}</select></div>
         <div class="fieldrow">
-          <div class="field"><label>Date</label><input type="date" id="ml-date" value="${todayISO()}"></div>
-          <div class="field"><label>Minutes</label><input type="number" id="ml-minutes" min="1" value="30"></div>
+          <div class="field"><label for="ml-date">Date</label><input type="date" id="ml-date" value="${todayISO()}"></div>
+          <div class="field"><label for="ml-minutes">Minutes</label><input type="number" id="ml-minutes" min="1" value="30"></div>
         </div>
-        <div class="field"><label>Note (optional)</label><input type="text" id="ml-note" placeholder="What did you cover?"></div>
+        <div class="field"><label for="ml-note">Note (optional)</label><input type="text" id="ml-note" placeholder="What did you cover?"></div>
         <button class="btn primary" data-action="manual-log" style="width:100%;justify-content:center;">Add to log</button>
       </div>
       <div class="card">
@@ -2044,7 +2140,7 @@ function renderStopwatchPanel(){
     <div style="font-size:12px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;">Studying</div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:6px;"><span class="dot" style="background:${s?s.color:'#999'}"></span><span style="font-weight:700;font-size:16px;">${s?esc(s.name):'—'}</span></div>
     <div class="stopwatch-display js-live-elapsed">00:00:00</div>
-    <input type="text" id="sw-topic" value="${esc(state.activeSession.topic||'')}" placeholder="What are you studying? (optional)" style="width:100%;max-width:280px;margin:4px 0 10px;">
+    <input type="text" id="sw-topic" aria-label="Study topic (optional)" value="${esc(state.activeSession.topic||'')}" placeholder="What are you studying? (optional)" style="width:100%;max-width:280px;margin:4px 0 10px;">
     <div class="timerctrls">
       <button class="btn primary" data-action="stop-stopwatch">Stop &amp; log session</button>
       <button class="btn ghost" data-action="discard-stopwatch">Discard</button>
@@ -2054,7 +2150,7 @@ function renderStopwatchPanel(){
   }
   return `
   <div class="timerform"><select id="sw-subject">${subjOptions(state.subjects[0]?.id)}</select></div>
-  <input type="text" id="sw-topic" placeholder="What are you studying? (optional)" style="width:100%;max-width:280px;margin-top:10px;">
+  <input type="text" id="sw-topic" aria-label="Study topic (optional)" placeholder="What are you studying? (optional)" style="width:100%;max-width:280px;margin-top:10px;">
   <div style="font-size:12px;color:var(--ink-soft);margin-top:10px;max-width:260px;">Press start when you sit down to study. It's timestamped for real, so it keeps going even if you close the browser.</div>
   <button class="btn primary" data-action="start-stopwatch" style="margin-top:16px;padding:12px 26px;font-size:15px;">▶ Start studying</button>
   `;
@@ -2065,7 +2161,7 @@ function renderPomodoroPanel(){
   <div class="timerform">
     <select id="timer-subject" ${timer.active?'disabled':''}>${subjOptions(timer.subjectId||state.subjects[0]?.id)}</select>
   </div>
-  <input type="text" id="pomo-topic" value="${esc(timer.topic||'')}" placeholder="What are you studying? (optional)" style="width:100%;max-width:280px;margin-top:8px;">
+  <input type="text" id="pomo-topic" aria-label="Study topic (optional)" value="${esc(timer.topic||'')}" placeholder="What are you studying? (optional)" style="width:100%;max-width:280px;margin-top:8px;">
   <div style="font-size:12px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;margin-top:10px;">${timer.mode==='work'?'Focus session':'Break'}</div>
   <div class="timerdisplay">${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}</div>
   <div class="timerctrls">
@@ -2226,7 +2322,7 @@ function renderFullscreenTimer(){
   const root=document.getElementById('fullscreenRoot');
   if(!timerFullscreen){ root.innerHTML=''; return; }
   const palette=state.settings.palette||'ledger';
-  const closeBtn=`<button class="fs-close" data-action="close-timer-fullscreen" title="Exit full screen" aria-label="Exit full screen"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
+  const closeBtn=`<button class="fs-close" data-action="close-timer-fullscreen" title="Exit full screen" aria-label="Exit full screen"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
   const totalForFx=timerMode==='pomodoro'?(timer.mode==='work'?state.settings.pomodoroWork:state.settings.pomodoroBreak)*60:0;
   const fracForFx=totalForFx>0?Math.min(1,Math.max(0,1-(timer.remaining/totalForFx))):0;
   const fx=fsFxMarkup(palette, fracForFx);
@@ -2272,7 +2368,7 @@ function renderFullscreenTimer(){
       ${timer.topic?`<div class="fs-topic">${esc(timer.topic)}</div>`:''}
       <div class="fs-label" style="margin-top:14px;">${timer.mode==='work'?'Focus session':'Break'}</div>
       <div class="fs-ringwrap">
-        <svg viewBox="0 0 200 200">
+        <svg viewBox="0 0 200 200" aria-hidden="true">
           <circle class="fs-ring-bg" cx="100" cy="100" r="${r}"></circle>
           <circle class="fs-ring-fg" id="fsRingFg" cx="100" cy="100" r="${r}" stroke-dasharray="${c}" stroke-dashoffset="${c*(1-frac)}"></circle>
         </svg>
@@ -2324,7 +2420,7 @@ function renderLogDaily(){
   ${Object.keys(bySubject).length?`<div class="card"><h3 style="margin:0 0 10px;font-size:14px;">By subject</h3>${state.subjects.filter(s=>bySubject[s.id]).map(s=>`<div class="barrow"><span class="lbl">${esc(s.name)}</span><div class="track"><div class="fill" style="width:${bySubject[s.id]/maxSubj*100}%;background:${s.color};"></div></div><span class="val mono">${fmtMins(bySubject[s.id])}</span></div>`).join('')}</div>`:''}
   <div class="card">
     <h3 style="margin:0 0 10px;font-size:14px;">Sessions</h3>
-    ${logs.length? logs.map(l=>{const s=subj(l.subjectId);return `<div class="sessionrow"><span><span class="dot" style="background:${s?s.color:'#999'};display:inline-block;margin-right:6px;"></span>${s?esc(s.name):'—'}${l.note?' — '+esc(l.note):''}</span><span style="display:flex;align-items:center;gap:8px;"><span class="mono">${fmtMins(l.minutes)}</span><button class="btn small ghost" data-action="delete-log" data-id="${l.id}" title="Delete">✕</button></span></div>`}).join('') : '<div class="empty">No study logged this day.</div>'}
+    ${logs.length? logs.map(l=>{const s=subj(l.subjectId);return `<div class="sessionrow"><span><span class="dot" style="background:${s?s.color:'#999'};display:inline-block;margin-right:6px;"></span>${s?esc(s.name):'—'}${l.note?' — '+esc(l.note):''}</span><span style="display:flex;align-items:center;gap:8px;"><span class="mono">${fmtMins(l.minutes)}</span><button class="btn small ghost" data-action="delete-log" data-id="${l.id}" title="Delete" aria-label="Delete this session log">✕</button></span></div>`}).join('') : '<div class="empty">No study logged this day.</div>'}
   </div>`;
 }
 function renderLogMonthly(){
@@ -2351,7 +2447,7 @@ function renderLogMonthly(){
     const mins=dayTotals[dateStr]||0;
     const intensity= mins? Math.max(0.18, mins/maxDay) : 0;
     const isToday=dateStr===todayISO();
-    cells+=`<div class="cal-cell${isToday?' cal-today':''}" data-action="log-jump-day" data-date="${dateStr}">
+    cells+=`<div class="cal-cell${isToday?' cal-today':''}" data-action="log-jump-day" data-date="${dateStr}" role="button" tabindex="0" aria-label="${new Date(dateStr+'T00:00:00').toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})}${mins?', '+fmtMins(mins)+' studied':', no study logged'}">
       <div class="cal-daynum">${day}</div>
       ${mins?`<div class="cal-bar" style="opacity:${intensity};"></div><div class="cal-mins mono">${fmtMins(mins)}</div>`:''}
     </div>`;
@@ -2719,7 +2815,7 @@ function importPhotoUnlockModalHtml(sourceName){
   <p style="font-size:13px;color:var(--ink-soft);line-height:1.55;margin:0 0 14px;">
     "${esc(sourceName||'This file')}" is password-locked. Enter its password below — once unlocked, its photos are copied straight into your main photo file, which keeps its own password (or lack of one) exactly as it is.
   </p>
-  <div class="field"><label>Password for that file</label><input type="password" id="import-unlock-pw" autofocus></div>
+  <div class="field"><label for="import-unlock-pw">Password for that file</label><input type="password" id="import-unlock-pw" autofocus></div>
   <div class="modalactions">
     <button class="btn" data-action="cancel-import-unlock">Cancel</button>
     <button class="btn primary" data-action="confirm-import-unlock">Unlock &amp; import</button>
@@ -2821,7 +2917,7 @@ function stopWebcamStream(){
 function photoCaptureModalHtml(){
   return `<h2>Add photo</h2>
   <img src="${pendingPhotoData}" style="width:100%;max-height:300px;object-fit:contain;border-radius:10px;margin-bottom:12px;background:var(--paper-3);">
-  <div class="field"><label>Note (optional)</label><textarea id="mf-photo-note" placeholder="What's this photo of?"></textarea></div>
+  <div class="field"><label for="mf-photo-note">Note (optional)</label><textarea id="mf-photo-note" placeholder="What's this photo of?"></textarea></div>
   <div class="modalactions">
     <button class="btn" data-action="discard-pending-photo">Cancel</button>
     <button class="btn primary" data-action="save-photo">Save photo</button>
@@ -2831,10 +2927,10 @@ function photoModalHtml(p){
   return `<h2>${fmtDateTime(p.takenAt)}</h2>
   <div style="position:relative;">
     <img src="${p.dataUrl}" style="width:100%;max-height:400px;object-fit:contain;border-radius:10px;margin-bottom:12px;background:var(--paper-3);display:block;">
-    <button class="btn" data-action="prev-photo" title="Previous photo (←)" style="position:absolute;left:6px;top:calc(50% - 18px);padding:6px 11px;line-height:1;font-size:16px;opacity:.88;">‹</button>
-    <button class="btn" data-action="next-photo" title="Next photo (→)" style="position:absolute;right:6px;top:calc(50% - 18px);padding:6px 11px;line-height:1;font-size:16px;opacity:.88;">›</button>
+    <button class="btn" data-action="prev-photo" title="Previous photo (←)" aria-label="Previous photo" style="position:absolute;left:6px;top:calc(50% - 18px);padding:6px 11px;line-height:1;font-size:16px;opacity:.88;">‹</button>
+    <button class="btn" data-action="next-photo" title="Next photo (→)" aria-label="Next photo" style="position:absolute;right:6px;top:calc(50% - 18px);padding:6px 11px;line-height:1;font-size:16px;opacity:.88;">›</button>
   </div>
-  <div class="field"><label>Note</label><textarea id="mf-photo-edit-note" placeholder="Add a note...">${esc(p.note)}</textarea></div>
+  <div class="field"><label for="mf-photo-edit-note">Note</label><textarea id="mf-photo-edit-note" placeholder="Add a note...">${esc(p.note)}</textarea></div>
   <div class="modalactions">
     <button class="btn danger" data-action="delete-photo" data-id="${p.id}">Delete</button>
     <button class="btn" data-action="download-photo" data-id="${p.id}">Download</button>
@@ -2858,7 +2954,7 @@ function renderPhotos(){
     <div class="card" style="text-align:center;padding:36px 20px;max-width:340px;margin:0 auto;">
       <div style="font-size:28px;margin-bottom:8px;">🔒</div>
       <div style="font-size:13px;color:var(--ink-soft);margin-bottom:16px;">This photos file is password-locked. Enter the password to view it in this session.</div>
-      <div class="field"><input type="password" id="photo-unlock-pw" placeholder="Password" autocomplete="current-password"></div>
+      <div class="field"><label for="photo-unlock-pw" class="sr-only">Password</label><input type="password" id="photo-unlock-pw" placeholder="Password" autocomplete="current-password"></div>
       <button class="btn primary" data-action="unlock-photos" style="width:100%;margin-top:6px;">Unlock</button>
     </div>`;
   }
@@ -2911,7 +3007,7 @@ function renderPhotos(){
   </div>
   ${legacyBanner}
   ${photos.length? `<div class="photo-grid">${photos.map(p=>`
-    <div class="photo-card" data-action="view-photo" data-id="${p.id}">
+    <div class="photo-card" data-action="view-photo" data-id="${p.id}" role="button" tabindex="0" aria-label="View photo from ${fmtDateTime(p.takenAt)}${p.note?': '+esc(p.note):''}">
       <img src="${p.dataUrl}" loading="lazy" decoding="async" alt="">
       <div class="photo-meta">${fmtDateTime(p.takenAt)}</div>
     </div>`).join('')}</div>`
@@ -2922,8 +3018,8 @@ function renderPhotos(){
 function setPhotoPasswordModalHtml(){
   return `<h2>Lock your photos</h2>
   <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;line-height:1.5;">Choose a password. You'll need it to open this photos file from now on — in the app, and if the raw file is ever opened directly. There's no way to recover it if the password is lost, so keep it somewhere safe.</div>
-  <div class="field"><label>Password</label><input type="password" id="pw-new1" autocomplete="new-password"></div>
-  <div class="field"><label>Confirm password</label><input type="password" id="pw-new2" autocomplete="new-password"></div>
+  <div class="field"><label for="pw-new1">Password</label><input type="password" id="pw-new1" autocomplete="new-password"></div>
+  <div class="field"><label for="pw-new2">Confirm password</label><input type="password" id="pw-new2" autocomplete="new-password"></div>
   <div class="modalactions">
     <button class="btn" data-action="close-modal">Cancel</button>
     <button class="btn primary" data-action="confirm-set-photo-password">Lock photos</button>
@@ -2931,9 +3027,9 @@ function setPhotoPasswordModalHtml(){
 }
 function changePhotoPasswordModalHtml(){
   return `<h2>Change password</h2>
-  <div class="field"><label>Current password</label><input type="password" id="pw-cur" autocomplete="current-password"></div>
-  <div class="field"><label>New password</label><input type="password" id="pw-new1" autocomplete="new-password"></div>
-  <div class="field"><label>Confirm new password</label><input type="password" id="pw-new2" autocomplete="new-password"></div>
+  <div class="field"><label for="pw-cur">Current password</label><input type="password" id="pw-cur" autocomplete="current-password"></div>
+  <div class="field"><label for="pw-new1">New password</label><input type="password" id="pw-new1" autocomplete="new-password"></div>
+  <div class="field"><label for="pw-new2">Confirm new password</label><input type="password" id="pw-new2" autocomplete="new-password"></div>
   <div class="modalactions">
     <button class="btn" data-action="close-modal">Cancel</button>
     <button class="btn primary" data-action="confirm-change-photo-password">Update password</button>
@@ -2942,7 +3038,7 @@ function changePhotoPasswordModalHtml(){
 function removePhotoPasswordModalHtml(){
   return `<h2>Remove password?</h2>
   <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;line-height:1.5;">This photos file goes back to plain, readable storage — no password needed to open it, in the app or directly on disk.</div>
-  <div class="field"><label>Current password</label><input type="password" id="pw-cur" autocomplete="current-password"></div>
+  <div class="field"><label for="pw-cur">Current password</label><input type="password" id="pw-cur" autocomplete="current-password"></div>
   <div class="modalactions">
     <button class="btn" data-action="close-modal">Cancel</button>
     <button class="btn danger" data-action="confirm-remove-photo-password">Remove password</button>
@@ -3001,8 +3097,8 @@ function renderSubjects(){
   </div>
   <div class="card">
     ${state.subjects.length? state.subjects.map(s=>`<div class="subjrow">
-      <div class="swatch" style="background:${s.color};" data-action="edit-subject" data-id="${s.id}"></div>
-      <div style="flex:1;font-weight:500;font-size:14px;cursor:pointer;" data-action="edit-subject" data-id="${s.id}">${esc(s.name)}</div>
+      <div class="swatch" style="background:${s.color};" data-action="edit-subject" data-id="${s.id}" aria-hidden="true"></div>
+      <div style="flex:1;font-weight:500;font-size:14px;cursor:pointer;" data-action="edit-subject" data-id="${s.id}" role="button" tabindex="0" aria-label="Edit subject: ${esc(s.name)}">${esc(s.name)}</div>
       <button class="btn small ghost" data-action="delete-subject" data-id="${s.id}">Remove</button>
     </div>`).join('') : '<div class="empty">No subjects yet.</div>'}
   </div>`;
@@ -3010,11 +3106,11 @@ function renderSubjects(){
 function subjectModalHtml(s){
   const subject=s||{id:null,name:'',color:SUBJECT_PALETTE[state.subjects.length%SUBJECT_PALETTE.length]};
   return `<h2>${s?'Edit subject':'Add subject'}</h2>
-  <div class="field"><label>Name</label><input type="text" id="mf-name" value="${esc(subject.name)}" placeholder="e.g. Chemistry"></div>
+  <div class="field"><label for="mf-name">Name</label><input type="text" id="mf-name" value="${esc(subject.name)}" placeholder="e.g. Chemistry"></div>
   <div class="field"><label>Color</label>
-    <div class="palette" id="mf-palette">${SUBJECT_PALETTE.map(c=>`<div class="sw ${c===subject.color?'sel':''}" style="background:${c};" data-color="${c}"></div>`).join('')}
+    <div class="palette" id="mf-palette" role="group" aria-label="Color">${SUBJECT_PALETTE.map(c=>`<div class="sw ${c===subject.color?'sel':''}" style="background:${c};" data-color="${c}" role="button" tabindex="0" aria-pressed="${c===subject.color}" aria-label="Color ${c}"></div>`).join('')}
       <label class="sw custompick" style="background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red);display:flex;align-items:center;justify-content:center;cursor:pointer;" title="Custom color">
-        <input type="color" id="mf-colorpicker" value="${subject.color}" style="opacity:0;width:22px;height:22px;cursor:pointer;">
+        <input type="color" id="mf-colorpicker" value="${subject.color}" aria-label="Custom color" style="opacity:0;width:22px;height:22px;cursor:pointer;">
       </label>
     </div>
     <input type="hidden" id="mf-color" value="${subject.color}">
@@ -3053,9 +3149,9 @@ function renderSettings(){
     <div style="font-size:12px;color:var(--ink-soft);margin-bottom:12px;line-height:1.55;">
       Nothing syncs automatically — this only runs when you tap a button below. Needs a tiny free server you deploy once — worker.js came bundled with this app's download, alongside index.html. Paste your deployed Worker's address and a shared code below, then set up the same two on your other device.
     </div>
-    <div class="field"><label>Worker URL</label><input type="text" id="set-sync-url" placeholder="https://your-worker.workers.dev" value="${sett.syncServerUrl||''}"></div>
+    <div class="field"><label for="set-sync-url">Worker URL</label><input type="text" id="set-sync-url" placeholder="https://your-worker.workers.dev" value="${sett.syncServerUrl||''}"></div>
     <div class="fieldrow">
-      <div class="field"><label>Sync code (same on both devices)</label><input type="text" id="set-sync-code" placeholder="e.g. amber-cedar-4821" value="${sett.syncCode||''}"></div>
+      <div class="field"><label for="set-sync-code">Sync code (same on both devices)</label><input type="password" id="set-sync-code" placeholder="e.g. amber-cedar-4821" value="${sett.syncCode||''}" autocomplete="off"></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
       <button class="btn" data-action="gen-sync-code">Generate a code</button>
@@ -3071,48 +3167,48 @@ function renderSettings(){
   </div>
   <div class="card">
     <h3 style="margin:0 0 10px;font-size:14px;">Theme</h3>
-    <div class="theme-options">
-      <div class="theme-opt ${(sett.palette||'ledger')==='ledger'?'sel':''}" data-action="set-palette" data-palette="ledger">
+    <div class="theme-options" role="group" aria-label="Theme">
+      <div class="theme-opt ${(sett.palette||'ledger')==='ledger'?'sel':''}" data-action="set-palette" data-palette="ledger" role="button" tabindex="0" aria-pressed="${(sett.palette||'ledger')==='ledger'}">
         <div class="theme-preview" style="background:#EFEDE6;"><span style="background:#2E5E4E;"></span><span style="background:#B23A48;"></span></div>
         Ledger
         <div class="theme-desc">Paper &amp; ink</div>
       </div>
-      <div class="theme-opt ${sett.palette==='terminal'?'sel':''}" data-action="set-palette" data-palette="terminal">
+      <div class="theme-opt ${sett.palette==='terminal'?'sel':''}" data-action="set-palette" data-palette="terminal" role="button" tabindex="0" aria-pressed="${sett.palette==='terminal'}">
         <div class="theme-preview" style="background:#0A0F0B;"><span style="background:#3DFF8E;"></span><span style="background:#FFD84D;"></span></div>
         Terminal
         <div class="theme-desc">Mono &amp; sharp</div>
       </div>
-      <div class="theme-opt ${sett.palette==='neon'?'sel':''}" data-action="set-palette" data-palette="neon">
+      <div class="theme-opt ${sett.palette==='neon'?'sel':''}" data-action="set-palette" data-palette="neon" role="button" tabindex="0" aria-pressed="${sett.palette==='neon'}">
         <div class="theme-preview" style="background:#0D0221;"><span style="background:#39FF9E;"></span><span style="background:#FF2E9A;"></span></div>
         Neon
         <div class="theme-desc">Glowing &amp; bold</div>
       </div>
-      <div class="theme-opt ${sett.palette==='aurora'?'sel':''}" data-action="set-palette" data-palette="aurora">
+      <div class="theme-opt ${sett.palette==='aurora'?'sel':''}" data-action="set-palette" data-palette="aurora" role="button" tabindex="0" aria-pressed="${sett.palette==='aurora'}">
         <div class="theme-preview" style="background:#070A12;"><span style="background:#57E8B0;"></span><span style="background:#8C93F8;"></span></div>
         Aurora
         <div class="theme-desc">Drifting glow</div>
       </div>
-      <div class="theme-opt ${sett.palette==='sakura'?'sel':''}" data-action="set-palette" data-palette="sakura">
+      <div class="theme-opt ${sett.palette==='sakura'?'sel':''}" data-action="set-palette" data-palette="sakura" role="button" tabindex="0" aria-pressed="${sett.palette==='sakura'}">
         <div class="theme-preview" style="background:#FFF6F8;"><span style="background:#D9648A;"></span><span style="background:#C13B52;"></span></div>
         Sakura
         <div class="theme-desc">Falling petals</div>
       </div>
-      <div class="theme-opt ${sett.palette==='sunset'?'sel':''}" data-action="set-palette" data-palette="sunset">
+      <div class="theme-opt ${sett.palette==='sunset'?'sel':''}" data-action="set-palette" data-palette="sunset" role="button" tabindex="0" aria-pressed="${sett.palette==='sunset'}">
         <div class="theme-preview" style="background:linear-gradient(180deg,#FFDFAE,#C97FD1);"><span style="background:#128071;"></span><span style="background:#F4A73E;"></span></div>
         Sunset
         <div class="theme-desc">Drifting gradient</div>
       </div>
-      <div class="theme-opt ${sett.palette==='lavender'?'sel':''}" data-action="set-palette" data-palette="lavender">
+      <div class="theme-opt ${sett.palette==='lavender'?'sel':''}" data-action="set-palette" data-palette="lavender" role="button" tabindex="0" aria-pressed="${sett.palette==='lavender'}">
         <div class="theme-preview" style="background:#F5F2FC;"><span style="background:#8B7BC7;"></span><span style="background:#6E88CC;"></span></div>
         Lavender
         <div class="theme-desc">Dot-grid &amp; serif</div>
       </div>
-      <div class="theme-opt ${sett.palette==='mint'?'sel':''}" data-action="set-palette" data-palette="mint">
+      <div class="theme-opt ${sett.palette==='mint'?'sel':''}" data-action="set-palette" data-palette="mint" role="button" tabindex="0" aria-pressed="${sett.palette==='mint'}">
         <div class="theme-preview" style="background:#EFFAF5;"><span style="background:#22A379;"></span><span style="background:#DD6E89;"></span></div>
         Mint
         <div class="theme-desc">Crisp &amp; frosted</div>
       </div>
-      <div class="theme-opt ${sett.palette==='diagnostic'?'sel':''}" data-action="set-palette" data-palette="diagnostic">
+      <div class="theme-opt ${sett.palette==='diagnostic'?'sel':''}" data-action="set-palette" data-palette="diagnostic" role="button" tabindex="0" aria-pressed="${sett.palette==='diagnostic'}">
         <div class="theme-preview" style="background:#241412;"><span style="background:#8FA88A;"></span><span style="background:#C0574C;"></span></div>
         Diagnostic
         <div class="theme-desc">Dithered terminal readout</div>
@@ -3122,20 +3218,20 @@ function renderSettings(){
   <div class="card">
     <h3 style="margin:0 0 6px;font-size:14px;">Appearance</h3>
     ${(sett.palette||'ledger')==='ledger'
-      ? `<div class="togglerow"><span style="font-size:13px;">Dark mode</span><div class="switch ${sett.darkMode?'on':''}" data-action="toggle-dark"><div class="knob"></div></div></div>`
+      ? `<div class="togglerow"><span style="font-size:13px;" id="dark-mode-label">Dark mode</span><div class="switch ${sett.darkMode?'on':''}" data-action="toggle-dark" role="switch" tabindex="0" aria-checked="${sett.darkMode?'true':'false'}" aria-labelledby="dark-mode-label"><div class="knob"></div></div></div>`
       : `<div style="font-size:12px;color:var(--ink-soft);">This theme has its own fixed look, so dark mode doesn't apply here.</div>`}
   </div>
   <div class="card">
     <h3 style="margin:0 0 10px;font-size:14px;">Timer defaults</h3>
     <div class="fieldrow">
-      <div class="field"><label>Focus length (minutes)</label><input type="number" id="set-work" min="1" value="${sett.pomodoroWork}"></div>
-      <div class="field"><label>Break length (minutes)</label><input type="number" id="set-break" min="1" value="${sett.pomodoroBreak}"></div>
+      <div class="field"><label for="set-work">Focus length (minutes)</label><input type="number" id="set-work" min="1" value="${sett.pomodoroWork}"></div>
+      <div class="field"><label for="set-break">Break length (minutes)</label><input type="number" id="set-break" min="1" value="${sett.pomodoroBreak}"></div>
     </div>
     <button class="btn primary" data-action="save-timer-settings">Save timer defaults</button>
   </div>
   <div class="card">
     <h3 style="margin:0 0 10px;font-size:14px;">Reminders</h3>
-    <div class="field"><label>Flag homework due within (days)</label><input type="number" id="set-reminder" min="0" value="${sett.reminderDaysBefore}"></div>
+    <div class="field"><label for="set-reminder">Flag homework due within (days)</label><input type="number" id="set-reminder" min="0" value="${sett.reminderDaysBefore}"></div>
     <button class="btn primary" data-action="save-reminder-settings">Save</button>
   </div>
   <div class="card">
@@ -3589,14 +3685,15 @@ document.body.addEventListener('change', function(e){
 document.body.addEventListener('click', function(e){
   const sw=e.target.closest('#mf-palette .sw');
   if(sw && sw.dataset.color){
-    document.querySelectorAll('#mf-palette .sw').forEach(x=>x.classList.remove('sel'));
+    document.querySelectorAll('#mf-palette .sw').forEach(x=>{ x.classList.remove('sel'); if(x.hasAttribute('aria-pressed')) x.setAttribute('aria-pressed','false'); });
     sw.classList.add('sel');
+    if(sw.hasAttribute('aria-pressed')) sw.setAttribute('aria-pressed','true');
     document.getElementById('mf-color').value=sw.dataset.color;
   }
 });
 document.body.addEventListener('input', function(e){
   if(e.target.id==='mf-colorpicker'){
-    document.querySelectorAll('#mf-palette .sw').forEach(x=>x.classList.remove('sel'));
+    document.querySelectorAll('#mf-palette .sw').forEach(x=>{ x.classList.remove('sel'); if(x.hasAttribute('aria-pressed')) x.setAttribute('aria-pressed','false'); });
     document.getElementById('mf-color').value=e.target.value;
   }
   if(e.target.id==='sw-topic' && state.activeSession){
