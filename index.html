@@ -382,6 +382,146 @@
 [data-palette="diagnostic"] .barrow .val{ text-transform:uppercase; }
 [data-palette="diagnostic"] .empty{ border-style:solid; border-radius:0; }
 
+/* ===== THEME: Halftone — dot-screen night sky, drifting cumulus, print-registration
+   texture on every surface. This theme also gets two bespoke animations (see the
+   HALFTONE THEME EFFECTS block in the script, and the .halftone-curtain / .section-in
+   rules below): an ink-dot curtain that wipes top-to-bottom the first time this theme
+   is shown, and a matching top-to-bottom reveal on the main content whenever the
+   person switches tabs while it's active. Both are Halftone-only — every other theme
+   is unaffected. ===== */
+[data-palette="halftone"]{
+  --paper:#0E1A2B;
+  --paper-2:#152640;
+  --paper-3:#1C3252;
+  --ink:#EAF3FC;
+  --ink-soft:#89ABCB;
+  --line:#28456D;
+  --accent-study:#57C6E0;
+  --accent-study-soft:#123244;
+  --accent-due:#F2718A;
+  --accent-due-soft:#3A1C29;
+  --accent-gold:#F4C15E;
+  --accent-gold-soft:#3A2E14;
+  --accent-info:#9FB8E8;
+  --accent-info-soft:#1C2C4A;
+  --radius:16px;
+  --radius-sm:10px;
+  --font-display:'Outfit',sans-serif;
+  --font-body:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  --shadow:0 10px 32px rgba(4,10,20,0.5);
+  --on-study:#06141F;
+  --on-due:#2A0812;
+}
+/* Real background art (the dotted sky + clouds) is a <canvas> painted by JS into
+   #halftoneBgLayer, fixed behind #app — see setupHalftoneBackground(). This flat
+   dot-mesh is just a same-tone fallback for the instant before that canvas paints,
+   and for no-JS/print contexts. */
+[data-palette="halftone"] body{
+  background-color:var(--paper);
+  background-image:
+    radial-gradient(circle, rgba(234,243,252,0.035) 1px, transparent 1.5px),
+    radial-gradient(circle, rgba(87,198,224,0.05) 1px, transparent 1.5px);
+  background-size:13px 13px, 13px 13px;
+  background-position:0 0, 6.5px 6.5px;
+}
+[data-palette="halftone"] #app{ position:relative; z-index:1; }
+[data-palette="halftone"] .sidebar{
+  background-color:rgba(21,38,64,0.68);
+  background-image:
+    radial-gradient(circle, rgba(244,193,94,0.05) 1px, transparent 1.4px),
+    radial-gradient(circle, rgba(87,198,224,0.06) 1px, transparent 1.4px);
+  background-size:13px 13px, 13px 13px;
+  background-position:0 0, 6.5px 6.5px;
+  backdrop-filter:blur(12px);
+  border-right:1px solid rgba(87,198,224,0.16);
+}
+[data-palette="halftone"] #syncbar{
+  background:rgba(21,38,64,0.6); backdrop-filter:blur(12px); border-bottom-color:rgba(87,198,224,0.16);
+}
+[data-palette="halftone"] .card{
+  background-color:rgba(28,50,82,0.58);
+  background-image:
+    radial-gradient(circle, rgba(234,243,252,0.05) 1px, transparent 1.4px),
+    radial-gradient(circle, rgba(87,198,224,0.06) 1px, transparent 1.4px);
+  background-size:12px 12px, 12px 12px;
+  background-position:0 0, 6px 6px;
+  backdrop-filter:blur(8px);
+  border-color:rgba(87,198,224,0.18);
+}
+[data-palette="halftone"] h1,[data-palette="halftone"] h2,[data-palette="halftone"] h3,[data-palette="halftone"] .display{ font-weight:600; letter-spacing:-0.005em; }
+[data-palette="halftone"] h1::before,[data-palette="halftone"] h2::before,[data-palette="halftone"] h3::before{ content:'· '; color:var(--accent-study); opacity:.75; }
+[data-palette="halftone"] .btn{ background-color:rgba(28,50,82,0.55); backdrop-filter:blur(4px); }
+[data-palette="halftone"] .btn:hover{ background-color:rgba(37,63,100,0.8); }
+[data-palette="halftone"] .btn.primary{ animation:haloBreathe 3.6s ease-in-out infinite; }
+[data-palette="halftone"] .navitem.active{ box-shadow:0 4px 18px rgba(87,198,224,0.4); }
+[data-palette="halftone"] .brand-mark{ box-shadow:0 0 14px rgba(87,198,224,0.5); }
+[data-palette="halftone"] .swatch,[data-palette="halftone"] .navitem,[data-palette="halftone"] .tag,[data-palette="halftone"] .wg-block,[data-palette="halftone"] .cal-cell{ border-radius:12px; }
+[data-palette="halftone"] .cal-cell{ background:rgba(28,50,82,0.4); border-color:rgba(87,198,224,0.16); }
+[data-palette="halftone"] .barrow .track{ background:rgba(20,36,58,0.7); }
+[data-palette="halftone"] .barrow .fill{ background-image:radial-gradient(circle, rgba(255,255,255,0.35) 1px, transparent 1.2px); background-size:5px 5px; }
+[data-palette="halftone"] .empty{ border-color:rgba(87,198,224,0.28); }
+[data-palette="halftone"] .modal{ background:rgba(19,33,54,0.94); backdrop-filter:blur(18px); border:1px solid rgba(87,198,224,0.2); }
+[data-palette="halftone"] .toast{ background:var(--accent-study); color:var(--on-study); }
+[data-palette="halftone"] select,[data-palette="halftone"] input[type=text],[data-palette="halftone"] input[type=date],[data-palette="halftone"] input[type=number],[data-palette="halftone"] textarea{
+  background:rgba(10,20,34,0.55); border-color:rgba(87,198,224,0.24); color:var(--ink);
+}
+@keyframes haloBreathe{
+  0%,100%{ box-shadow:0 3px 16px rgba(87,198,224,0.28); }
+  50%{ box-shadow:0 5px 26px rgba(87,198,224,0.5); }
+}
+
+/* --- Halftone-only entrance: an opaque dot curtain that wipes away top-to-bottom the
+   first time this theme is shown (page load, or switching into it from Settings). --- */
+.halftone-curtain{
+  position:fixed; inset:0; z-index:9999; pointer-events:none;
+  background-color:#0B1420;
+  background-image:
+    radial-gradient(circle, rgba(234,243,252,0.14) 1px, transparent 1.6px),
+    radial-gradient(circle, rgba(87,198,224,0.2) 1px, transparent 1.6px);
+  background-size:13px 13px, 13px 13px;
+  background-position:0 0, 6.5px 6.5px;
+  animation: halftoneCurtainOut 1.3s cubic-bezier(.6,0,.2,1) forwards;
+}
+.halftone-curtain-sweep{
+  position:absolute; left:0; right:0; top:0; height:64px;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.95) 1.6px, transparent 1.8px);
+  background-size:11px 11px;
+  mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+  box-shadow:0 0 26px 6px rgba(87,198,224,0.55);
+  animation: halftoneSweepMove 1.3s cubic-bezier(.6,0,.2,1) forwards;
+}
+@keyframes halftoneCurtainOut{
+  0%{ clip-path:inset(0 0 0 0); }
+  100%{ clip-path:inset(100% 0 0 0); }
+}
+@keyframes halftoneSweepMove{
+  0%{ top:0%; opacity:1; }
+  88%{ opacity:1; }
+  100%{ top:100%; opacity:0; }
+}
+
+/* --- Halftone-only section transitions: main content reveals top-to-bottom, with the
+   same travelling dot-line, every time the person switches tabs (see render() in the
+   script, which adds/removes .section-in on the persistent #main node). --- */
+[data-palette="halftone"] main{ position:relative; }
+[data-palette="halftone"] main.section-in{ animation: halftoneMainIn .6s cubic-bezier(.22,.8,.32,1) both; }
+[data-palette="halftone"] main.section-in::after{
+  content:''; position:absolute; left:0; right:0; top:0; height:44px;
+  background-image: radial-gradient(circle, rgba(87,198,224,0.95) 1.4px, transparent 1.6px);
+  background-size:10px 10px;
+  mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+  box-shadow:0 0 16px 4px rgba(87,198,224,0.5);
+  pointer-events:none; z-index:5;
+  animation: halftoneSweepMove .6s cubic-bezier(.22,.8,.32,1) both;
+}
+@keyframes halftoneMainIn{
+  0%{ clip-path:inset(0 0 100% 0); opacity:.5; }
+  100%{ clip-path:inset(0 0 0% 0); opacity:1; }
+}
+
 *{box-sizing:border-box;}
 body{margin:0;}
 html,body{height:100%;}
@@ -642,6 +782,36 @@ textarea{width:100%;resize:vertical;min-height:64px;}
 .timer-fs.fs-diagnostic .fs-gridcell{display:flex;align-items:center;justify-content:center;aspect-ratio:1;border:1px solid var(--line);color:var(--ink-soft);opacity:.55;}
 .timer-fs.fs-diagnostic .fs-gridcell.hit{background:var(--accent-study-soft);color:var(--accent-study);opacity:.9;border-color:var(--accent-study);}
 
+/* --- halftone: a big cozy dot-screen cloud drawn to <canvas> by renderFsCloud(), with a
+   slow drift/breathe on the canvas itself (cheap — it's a transform, not a redraw) plus a
+   scatter of tiny twinkling dots in the dark upper sky. --- */
+.timer-fs.fs-halftone{background:#0E1A2B;}
+.timer-fs.fs-halftone .fs-cloud-canvas{
+  position:absolute; inset:-4%; width:108%; height:108%;
+  animation:fsCloudDrift 16s ease-in-out infinite; transform-origin:50% 60%;
+}
+@keyframes fsCloudDrift{
+  0%,100%{ transform:translate(0,0) scale(1); }
+  50%{ transform:translate(-1.2%,0.6%) scale(1.02); }
+}
+.timer-fs.fs-halftone .fs-twinkle{
+  position:absolute; border-radius:50%; background:#EAF3FC; opacity:.75;
+  box-shadow:0 0 5px rgba(234,243,252,0.6);
+  animation-name:fsTwinkleDot; animation-timing-function:ease-in-out; animation-iteration-count:infinite;
+}
+.timer-fs.fs-halftone .fs-twinkle.warm{ background:#F4C15E; box-shadow:0 0 6px rgba(244,193,94,0.7); }
+@keyframes fsTwinkleDot{
+  0%,100%{ opacity:.25; transform:scale(.8); }
+  50%{ opacity:.9; transform:scale(1.15); }
+}
+.timer-fs.fs-halftone .fs-stage{
+  background:rgba(14,26,43,0.42); backdrop-filter:blur(14px);
+  border-radius:28px; padding:36px 42px; border:1px solid rgba(87,198,224,0.22);
+}
+.timer-fs.fs-halftone .fs-time{ text-shadow:0 0 22px rgba(87,198,224,.4); }
+.timer-fs.fs-halftone .fs-ring-fg{ filter:drop-shadow(0 0 6px rgba(87,198,224,.55)); }
+.timer-fs.fs-halftone .fs-label,.timer-fs.fs-halftone .fs-subject{ letter-spacing:.06em; }
+
 /* ===== Stats ===== */
 .barrow{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
 .barrow .lbl{width:110px;font-size:12.5px;font-weight:500;flex-shrink:0;}
@@ -840,12 +1010,15 @@ if('serviceWorker' in navigator){
 // style — tag releases as vX.Y.Z. Bump MAJOR for breaking changes, MINOR for new
 // features (e.g. a new theme), PATCH for fixes. Previous versions used a plain
 // MAJOR.MINOR number (e.g. "3.9"); 3.9 -> 3.9.0 is the semver equivalent. 3.10.0
-// added the Diagnostic theme; this release bumps MINOR to 3.12.0 for an
-// accessibility pass across the app (keyboard navigation, screen-reader
-// labelling, focus management on modals) and to stop the sync code field from
-// displaying a previously-saved code in plain text.
-const APP_VERSION='3.12.0';
-const APP_CODENAME='Keyring';
+// added the Diagnostic theme; 3.12.0 bumped MINOR for an accessibility pass across
+// the app (keyboard navigation, screen-reader labelling, focus management on
+// modals) and to stop the sync code field from displaying a previously-saved code
+// in plain text. This release bumps MINOR again to 3.13.0 for the Halftone theme: a
+// dot-screen night sky with drifting clouds behind the whole app, its own hero
+// cloud artwork in the full-screen timer, and an ink-dot page-load/section-switch
+// animation that only runs while Halftone is the active theme.
+const APP_VERSION='3.13.0';
+const APP_CODENAME='Nimbus';
 // The ONE intentional difference between the main and beta deployments'
 // index.html: everything else stays byte-identical. Set to 'beta' in the
 // beta copy only, so the version display below reads e.g. "Beta 3.10.0"
@@ -994,6 +1167,11 @@ let pendingLockedImport=null; // {parsed, sourceHandle, sourceName} awaiting a p
 // rather than a local file. There's no fileHandle in this mode, so saves go to a per-account
 // device cache (localStorage) instead, and the syncbar's button talks to the cloud instead of disk.
 let cloudMode=false;
+// --- Halftone theme effects (see HALFTONE THEME EFFECTS below) ---
+let lastAppliedPalette=null; // lets us detect "just switched into halftone" to fire the curtain once
+let lastRenderedTab=null;    // lets render() know a tab switch (not just a data refresh) happened
+let haloBlobs=null;          // this session's cloud-cluster layout, reused across resizes/re-renders
+let halftoneResizeBound=false;
 // active=true from the moment a session first starts until Reset or Finish&log — stays true
 // through pauses and through the automatic work->break->work handoff, so the subject select
 // (which checks `active`, not `running`) can't be changed mid-session by pausing and swapping.
@@ -1623,6 +1801,165 @@ function setupThemeEffects(){
     }
     document.body.appendChild(wrap);
   }
+  if(palette==='halftone'){
+    setupHalftoneBackground();
+    if(lastAppliedPalette!=='halftone') playHalftoneCurtain();
+  }else{
+    teardownHalftoneBackground();
+  }
+  lastAppliedPalette=palette;
+}
+
+/* ============================= HALFTONE THEME EFFECTS =============================
+   Everything below is exclusive to the Halftone palette: a canvas-painted dot-screen
+   sky with drifting clouds behind the whole app, an ink-dot curtain that wipes away
+   top-to-bottom the first time the theme appears, and a matching reveal on #main
+   whenever the person switches tabs while it's active (triggered from render()).
+   Nothing here runs, or has any effect, for any other theme. */
+function prefersReducedMotion(){
+  return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+// Cheap deterministic pseudo-random in [0,1) from two integers — gives the halftone
+// field organic, non-repeating speckle without needing a real noise library.
+function haloHash(x,y){
+  const n=Math.sin(x*127.1+y*311.7)*43758.5453;
+  return n-Math.floor(n);
+}
+// Max-blend distance field over a handful of soft elliptical "cloud" blobs (all
+// coordinates 0..1, normalized to the canvas). Used both for the page-wide sky and
+// for the full-screen timer's hero cloud, just with different blob layouts.
+function haloField(nx,ny,blobs){
+  let v=0;
+  for(let i=0;i<blobs.length;i++){
+    const b=blobs[i];
+    const dx=(nx-b.x)*b.sx, dy=(ny-b.y)*b.sy;
+    const t=1-Math.sqrt(dx*dx+dy*dy)/b.r;
+    if(t>v) v=t;
+  }
+  return v;
+}
+// A loose, lower-weighted cluster of cloud blobs — mirrors the reference photo's
+// composition (a dark sky giving way to a fluffy mass of cloud lower in frame),
+// randomized a little each time so the sky looks slightly different every time
+// this theme is switched on.
+function generateHaloBlobs(){
+  const blobs=[];
+  const clusterX=0.3+Math.random()*0.4;
+  const n=5+Math.floor(Math.random()*3);
+  for(let i=0;i<n;i++){
+    blobs.push({
+      x:clusterX+(Math.random()-0.5)*0.55,
+      y:0.58+(Math.random()-0.5)*0.42,
+      r:0.15+Math.random()*0.17,
+      sx:0.75+Math.random()*0.55,
+      sy:1.05+Math.random()*0.55
+    });
+  }
+  return blobs;
+}
+// Paints a halftone dot field into ctx: a soft vertical sky gradient, small scattered
+// dots in the dark "sky" gaps, larger dots (size scales with cloud density) for the
+// clouds themselves, and a sprinkle of warm gold dots near mid-tone cloud edges to
+// suggest sunlight breaking through — the bit of "different colours" warmth that
+// keeps the whole thing from reading as flat monochrome dot-grid.
+function drawHalftoneField(ctx,w,h,blobs,opts){
+  const cell=opts.cell||12;
+  const cols=Math.ceil(w/cell)+1, rows=Math.ceil(h/cell)+1;
+  const grad=ctx.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0,opts.skyTop||'#0A1524');
+  grad.addColorStop(1,opts.skyBottom||'#182B45');
+  ctx.fillStyle=grad;
+  ctx.fillRect(0,0,w,h);
+  const skyDots=[], cloudDots=[], warmDots=[];
+  for(let ry=0;ry<rows;ry++){
+    for(let rx=0;rx<cols;rx++){
+      const px=rx*cell+((ry%2)?cell/2:0);
+      const py=ry*cell;
+      const v=haloField(px/w,py/h,blobs)+(haloHash(rx,ry)-0.5)*0.3;
+      if(v>0.08){
+        const rr=Math.min(cell*0.48,1+v*cell*0.62);
+        const warmChance=0.05+Math.max(0,0.55-Math.abs(v-0.55))*0.16;
+        if(haloHash(rx*3+1,ry*3+7)<warmChance) warmDots.push([px,py,rr*0.85]);
+        else cloudDots.push([px,py,rr]);
+      }else if(haloHash(rx*7+2,ry*7+3)<0.6){
+        const sv=Math.max(0,0.14+(haloHash(rx,ry)-0.5)*0.7-Math.max(0,-v)*0.18);
+        skyDots.push([px,py,0.5+sv*cell*0.36]);
+      }
+    }
+  }
+  ctx.fillStyle=opts.skyDot||'rgba(87,198,224,0.55)';
+  skyDots.forEach(d=>{ ctx.beginPath(); ctx.arc(d[0],d[1],d[2],0,Math.PI*2); ctx.fill(); });
+  ctx.fillStyle=opts.cloudDot||'rgba(234,243,252,0.9)';
+  cloudDots.forEach(d=>{ ctx.beginPath(); ctx.arc(d[0],d[1],d[2],0,Math.PI*2); ctx.fill(); });
+  ctx.fillStyle=opts.warmDot||'rgba(244,193,94,0.75)';
+  warmDots.forEach(d=>{ ctx.beginPath(); ctx.arc(d[0],d[1],d[2],0,Math.PI*2); ctx.fill(); });
+}
+function redrawHalftoneBackground(){
+  const canvas=document.getElementById('halftoneBgCanvas');
+  if(!canvas||!haloBlobs) return;
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  const w=window.innerWidth, h=window.innerHeight;
+  canvas.width=Math.floor(w*dpr); canvas.height=Math.floor(h*dpr);
+  const ctx=canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  drawHalftoneField(ctx,w,h,haloBlobs,{
+    cell:12, skyTop:'#0A1524', skyBottom:'#182B45',
+    skyDot:'rgba(87,198,224,0.5)', cloudDot:'rgba(234,243,252,0.85)', warmDot:'rgba(244,193,94,0.5)'
+  });
+}
+function setupHalftoneBackground(){
+  if(document.getElementById('halftoneBgLayer')) return; // already set up for this "session" of the theme
+  const layer=document.createElement('div');
+  layer.id='halftoneBgLayer';
+  layer.setAttribute('aria-hidden','true');
+  layer.style.cssText='position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;';
+  const canvas=document.createElement('canvas');
+  canvas.id='halftoneBgCanvas';
+  canvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;';
+  layer.appendChild(canvas);
+  document.body.appendChild(layer);
+  haloBlobs=generateHaloBlobs();
+  redrawHalftoneBackground();
+  if(!halftoneResizeBound){
+    let resizeT=null;
+    window.addEventListener('resize',()=>{
+      clearTimeout(resizeT);
+      resizeT=setTimeout(()=>{ if(document.getElementById('halftoneBgLayer')) redrawHalftoneBackground(); },150);
+    });
+    halftoneResizeBound=true;
+  }
+}
+function teardownHalftoneBackground(){
+  const layer=document.getElementById('halftoneBgLayer');
+  if(layer) layer.remove();
+  haloBlobs=null;
+}
+// The ink-dot curtain: an opaque full-screen dot field that wipes away top-to-bottom
+// (see .halftone-curtain / @keyframes halftoneCurtainOut in the CSS) the moment this
+// theme first appears — on opening the ledger file if it's already the saved theme,
+// or right when switching into it from Settings. Skips entirely under reduced-motion,
+// since its un-animated resting state is a full-screen cover — it must never be left
+// on screen without its wipe running.
+function playHalftoneCurtain(){
+  if(prefersReducedMotion()) return;
+  const curtain=document.createElement('div');
+  curtain.className='halftone-curtain';
+  curtain.setAttribute('aria-hidden','true');
+  const sweep=document.createElement('div');
+  sweep.className='halftone-curtain-sweep';
+  curtain.appendChild(sweep);
+  document.body.appendChild(curtain);
+  const remove=()=>{ if(curtain.parentNode) curtain.remove(); };
+  curtain.addEventListener('animationend',remove);
+  setTimeout(remove,2200); // safety net in case animationend never fires
+}
+// Called from render() when the active tab just changed while Halftone is active —
+// restarts the CSS reveal on #main (see .section-in / @keyframes halftoneMainIn).
+function triggerHalftoneSectionTransition(main){
+  if(prefersReducedMotion()) return;
+  main.classList.remove('section-in');
+  void main.offsetWidth; // force reflow so re-adding the class restarts the animation
+  main.classList.add('section-in');
 }
 
 /* ============================= NAV ============================= */
@@ -1757,6 +2094,10 @@ function render(){
   applyTheme();
   updateSyncBtnLabel();
   const main=document.getElementById('main');
+  // Only a genuine tab switch (not e.g. a data refresh while staying put) should replay
+  // the halftone reveal — and not the very first render, which the entrance curtain
+  // already covers. lastRenderedTab starts null, so this is false on that first call.
+  const tabChanged=(lastRenderedTab!==null && lastRenderedTab!==activeTab);
   if(activeTab==='today') main.innerHTML=renderToday();
   else if(activeTab==='schedule') main.innerHTML=renderSchedule();
   else if(activeTab==='homework') main.innerHTML=renderHomework();
@@ -1767,6 +2108,8 @@ function render(){
   else if(activeTab==='stats') main.innerHTML=renderStats();
   else if(activeTab==='subjects') main.innerHTML=renderSubjects();
   else if(activeTab==='settings') main.innerHTML=renderSettings();
+  if(tabChanged && (state.settings.palette||'ledger')==='halftone') triggerHalftoneSectionTransition(main);
+  lastRenderedTab=activeTab;
   updateLiveSessionBadge();
   updateStopwatchDisplays();
   if(timerFullscreen) renderFullscreenTimer();
@@ -2316,7 +2659,44 @@ function fsFxMarkup(palette, frac){
       <div class="fs-lettergrid">${cells}</div>
     </div>`;
   }
+  if(palette==='halftone'){
+    // The cloud itself is painted onto this canvas by renderFsCloud(), called right
+    // after this markup is inserted into the DOM (a plain <canvas> tag paints nothing
+    // on its own). Twinkle dots are cheap DOM/CSS and can be generated right here.
+    let twinkles='';
+    for(let i=0;i<14;i++){
+      const size=(1.5+Math.random()*2.2).toFixed(1);
+      const warm=Math.random()<0.35;
+      twinkles+=`<div class="fs-twinkle${warm?' warm':''}" style="width:${size}px;height:${size}px;left:${(Math.random()*100).toFixed(1)}%;top:${(Math.random()*46).toFixed(1)}%;animation-duration:${(2.5+Math.random()*3).toFixed(1)}s;animation-delay:${(Math.random()*4).toFixed(1)}s;"></div>`;
+    }
+    return `<div class="fs-fx"><canvas class="fs-cloud-canvas" id="fsCloudCanvas" aria-hidden="true"></canvas>${twinkles}</div>`;
+  }
   return `<div class="fs-fx"></div>`; // ledger + terminal use pseudo-element glows only
+}
+// Paints the full-screen "cozy cloud" hero art for the halftone theme — a bigger, more
+// central cloud cluster than the page background gets, same dot-field technique. Must
+// run after fsFxMarkup's canvas tag has actually been inserted into the DOM (innerHTML
+// alone never executes a canvas's drawing — see the renderFullscreenTimer call sites).
+function renderFsCloud(){
+  const canvas=document.getElementById('fsCloudCanvas');
+  if(!canvas) return;
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  const w=canvas.clientWidth||window.innerWidth, h=canvas.clientHeight||window.innerHeight;
+  canvas.width=Math.floor(w*dpr); canvas.height=Math.floor(h*dpr);
+  const ctx=canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const blobs=[
+    {x:0.5,y:0.46,r:0.30,sx:1,sy:0.72},
+    {x:0.33,y:0.58,r:0.22,sx:1,sy:0.85},
+    {x:0.69,y:0.56,r:0.24,sx:1,sy:0.8},
+    {x:0.5,y:0.67,r:0.32,sx:1.25,sy:0.58},
+    {x:0.41,y:0.4,r:0.14,sx:1,sy:1},
+    {x:0.6,y:0.38,r:0.13,sx:1,sy:1}
+  ];
+  drawHalftoneField(ctx,w,h,blobs,{
+    cell:9, skyTop:'#0A1524', skyBottom:'#1C3255',
+    skyDot:'rgba(87,198,224,0.55)', cloudDot:'rgba(238,246,253,0.95)', warmDot:'rgba(247,199,109,0.85)'
+  });
 }
 function renderFullscreenTimer(){
   const root=document.getElementById('fullscreenRoot');
@@ -2353,6 +2733,7 @@ function renderFullscreenTimer(){
         <div class="fs-hint">Esc to exit full screen</div>
       </div>`;
     }
+    if(palette==='halftone') renderFsCloud();
     return;
   }
 
@@ -2383,6 +2764,7 @@ function renderFullscreenTimer(){
     </div>
     <div class="fs-hint">Esc to exit full screen</div>
   </div>`;
+  if(palette==='halftone') renderFsCloud();
 }
 
 /* ============================= STUDY LOG (daily/monthly history) ============================= */
@@ -3212,6 +3594,11 @@ function renderSettings(){
         <div class="theme-preview" style="background:#241412;"><span style="background:#8FA88A;"></span><span style="background:#C0574C;"></span></div>
         Diagnostic
         <div class="theme-desc">Dithered terminal readout</div>
+      </div>
+      <div class="theme-opt ${sett.palette==='halftone'?'sel':''}" data-action="set-palette" data-palette="halftone" role="button" tabindex="0" aria-pressed="${sett.palette==='halftone'}">
+        <div class="theme-preview" style="background:#0E1A2B;"><span style="background:#57C6E0;"></span><span style="background:#F4C15E;"></span></div>
+        Halftone
+        <div class="theme-desc">Dot-screen clouds</div>
       </div>
     </div>
   </div>
