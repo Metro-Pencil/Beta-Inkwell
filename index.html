@@ -522,6 +522,132 @@
   100%{ clip-path:inset(0 0 0% 0); opacity:1; }
 }
 
+/* ===== THEME: Glass — an iridescent field of long, wiggly "ribbon" lines behind the
+   whole app, seen through frosted glass panels (sidebar, cards, sync bar, modals).
+   The ribbon field is a <canvas> painted by setupGlassBackground() — see the GLASS
+   THEME EFFECTS block in the script — plus a matching wiggly-ribbon flower as the
+   full-screen timer's hero art, and a left-to-right sweep reveal (the mirror image
+   of Halftone's top-to-bottom one) on first appearance and on every tab switch.
+   Both animations are Glass-only — every other theme is unaffected. ===== */
+[data-palette="glass"]{
+  --paper:#FBF8F5;
+  --paper-2:#F4EFE9;
+  --paper-3:#EBE0F8;
+  --ink:#29243D;
+  --ink-soft:#8B84A8;
+  --line:#E2D5F5;
+  --accent-study:#8A5CE8;
+  --accent-study-soft:#EEE6FC;
+  --accent-due:#E8734F;
+  --accent-due-soft:#FCE3D8;
+  --accent-gold:#E7A93E;
+  --accent-gold-soft:#FBEAD1;
+  --accent-info:#4FA3D8;
+  --accent-info-soft:#E1EFF9;
+  --radius:20px;
+  --radius-sm:13px;
+  --font-display:'Outfit',sans-serif;
+  --font-body:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  --shadow:0 10px 40px rgba(138,92,232,0.16);
+  --on-study:#fff;
+  --on-due:#fff;
+}
+/* Real background art (the wiggly ribbon field) is a <canvas> painted by JS into
+   #glassBgLayer, fixed behind #app — see setupGlassBackground(). This gradient is
+   just a same-tone fallback for the instant before that canvas paints, and for
+   no-JS/print contexts. */
+[data-palette="glass"] body{
+  background:linear-gradient(165deg,#FBF8F5 0%,#F5EEFB 55%,#EFE3FA 100%);
+}
+[data-palette="glass"] #app{ position:relative; z-index:1; }
+[data-palette="glass"] .sidebar{
+  background-color:rgba(255,255,255,0.5);
+  backdrop-filter:blur(18px) saturate(1.3);
+  -webkit-backdrop-filter:blur(18px) saturate(1.3);
+  border-right:1px solid rgba(255,255,255,0.65);
+}
+[data-palette="glass"] #syncbar{
+  background:rgba(255,255,255,0.45); backdrop-filter:blur(16px) saturate(1.3); -webkit-backdrop-filter:blur(16px) saturate(1.3);
+  border-bottom-color:rgba(255,255,255,0.55);
+}
+[data-palette="glass"] .card{
+  background-color:rgba(255,255,255,0.55);
+  backdrop-filter:blur(16px) saturate(1.25);
+  -webkit-backdrop-filter:blur(16px) saturate(1.25);
+  border:1px solid rgba(255,255,255,0.65);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.8), 0 10px 30px rgba(138,92,232,0.10);
+}
+[data-palette="glass"] h1,[data-palette="glass"] h2,[data-palette="glass"] h3,[data-palette="glass"] .display{ font-weight:600; letter-spacing:-0.01em; }
+[data-palette="glass"] h1::after,[data-palette="glass"] h2::after{
+  content:''; display:block; width:46px; height:3px; margin-top:9px; border-radius:3px;
+  background:linear-gradient(90deg, var(--accent-study), var(--accent-due), var(--accent-gold), var(--accent-info));
+}
+[data-palette="glass"] .btn{ background-color:rgba(255,255,255,0.62); backdrop-filter:blur(6px); border-color:rgba(255,255,255,0.75); }
+[data-palette="glass"] .btn:hover{ background-color:rgba(255,255,255,0.9); }
+[data-palette="glass"] .btn.primary{
+  background:linear-gradient(120deg, var(--accent-study), #B08CE8 45%, var(--accent-info));
+  background-size:220% 220%; border-color:transparent; color:#fff;
+  animation:glassSheen 5s ease-in-out infinite;
+}
+@keyframes glassSheen{ 0%,100%{ background-position:0% 50%; } 50%{ background-position:100% 50%; } }
+[data-palette="glass"] .navitem.active{ background:linear-gradient(120deg, var(--accent-study), #B08CE8); box-shadow:0 6px 18px rgba(138,92,232,0.35); }
+[data-palette="glass"] .brand-mark{ background:linear-gradient(135deg, var(--accent-study), var(--accent-due)); box-shadow:0 0 16px rgba(138,92,232,0.4); }
+[data-palette="glass"] .swatch,[data-palette="glass"] .navitem,[data-palette="glass"] .tag,[data-palette="glass"] .wg-block,[data-palette="glass"] .cal-cell{ border-radius:14px; }
+[data-palette="glass"] .cal-cell{ background:rgba(255,255,255,0.45); border-color:rgba(138,92,232,0.2); }
+[data-palette="glass"] .barrow .track{ background:rgba(235,224,248,0.7); }
+[data-palette="glass"] .empty{ border-color:rgba(138,92,232,0.28); }
+[data-palette="glass"] .modal{ background:rgba(255,255,255,0.88); backdrop-filter:blur(24px) saturate(1.3); -webkit-backdrop-filter:blur(24px) saturate(1.3); border:1px solid rgba(255,255,255,0.7); }
+[data-palette="glass"] .toast{ background:var(--accent-study); color:var(--on-study); }
+[data-palette="glass"] select,[data-palette="glass"] input[type=text],[data-palette="glass"] input[type=date],[data-palette="glass"] input[type=number],[data-palette="glass"] textarea{
+  background:rgba(255,255,255,0.65); border-color:rgba(138,92,232,0.25); color:var(--ink);
+}
+
+/* --- Glass-only entrance: a dense, colourful wiggly-ribbon curtain that wipes away
+   left-to-right the first time this theme is shown (page load, or switching into it
+   from Settings) — the mirror image of Halftone's top-to-bottom dot curtain. --- */
+.glass-curtain{
+  position:fixed; inset:0; z-index:9999; pointer-events:none; overflow:hidden;
+  animation: glassCurtainOut 1.3s cubic-bezier(.6,0,.2,1) forwards;
+}
+.glass-curtain canvas{ position:absolute; inset:0; width:100%; height:100%; }
+.glass-curtain-sweep{
+  position:absolute; top:0; bottom:0; left:0; width:84px;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,0.95) 55%, rgba(138,92,232,0.55) 82%, transparent);
+  mask-image: linear-gradient(to right, black 0%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 0%, transparent 100%);
+  box-shadow:0 0 30px 8px rgba(138,92,232,0.5);
+  animation: glassSweepMove 1.3s cubic-bezier(.6,0,.2,1) forwards;
+}
+@keyframes glassCurtainOut{
+  0%{ clip-path:inset(0 0 0 0); }
+  100%{ clip-path:inset(0 0 0 100%); }
+}
+@keyframes glassSweepMove{
+  0%{ left:0%; opacity:1; }
+  88%{ opacity:1; }
+  100%{ left:100%; opacity:0; }
+}
+
+/* --- Glass-only section transitions: main content reveals left-to-right, with the
+   same travelling ribbon-glow line, every time the person switches tabs (see render()
+   in the script, which adds/removes .section-in on the persistent #main node). --- */
+[data-palette="glass"] main{ position:relative; }
+[data-palette="glass"] main.section-in{ animation: glassMainIn .6s cubic-bezier(.22,.8,.32,1) both; }
+[data-palette="glass"] main.section-in::after{
+  content:''; position:absolute; top:0; bottom:0; left:0; width:64px;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,0.9) 55%, rgba(138,92,232,0.45) 82%, transparent);
+  mask-image: linear-gradient(to right, black 0%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 0%, transparent 100%);
+  box-shadow:0 0 20px 5px rgba(138,92,232,0.45);
+  pointer-events:none; z-index:5;
+  animation: glassSweepMove .6s cubic-bezier(.22,.8,.32,1) both;
+}
+@keyframes glassMainIn{
+  0%{ clip-path:inset(0 100% 0 0); opacity:.5; }
+  100%{ clip-path:inset(0 0% 0 0); opacity:1; }
+}
+
 *{box-sizing:border-box;}
 body{margin:0;}
 html,body{height:100%;}
@@ -812,6 +938,42 @@ textarea{width:100%;resize:vertical;min-height:64px;}
 .timer-fs.fs-halftone .fs-ring-fg{ filter:drop-shadow(0 0 6px rgba(87,198,224,.55)); }
 .timer-fs.fs-halftone .fs-label,.timer-fs.fs-halftone .fs-subject{ letter-spacing:.06em; }
 
+/* --- glass: a big cozy wiggly-ribbon flower drawn to <canvas> by renderFsGlassFlower(),
+   with a slow sway on the canvas itself (cheap — it's a transform, not a redraw), a
+   warm breathing glow behind it for coziness, and a scatter of small twinkling glints
+   in the iridescent palette. --- */
+.timer-fs.fs-glass{ background:linear-gradient(180deg,#FBF8F5 0%,#F3ECFB 100%); }
+.timer-fs.fs-glass::before{
+  content:''; position:absolute; inset:-20%;
+  background:radial-gradient(circle at 50% 46%, rgba(231,169,62,0.16), transparent 60%);
+  opacity:.85; animation:fsBreathe 7s ease-in-out infinite; z-index:0;
+}
+.timer-fs.fs-glass .fs-flower-canvas{
+  position:absolute; inset:-6%; width:112%; height:112%;
+  animation:fsFlowerSway 18s ease-in-out infinite; transform-origin:50% 52%;
+}
+@keyframes fsFlowerSway{
+  0%,100%{ transform:rotate(0deg) scale(1); }
+  50%{ transform:rotate(1.4deg) scale(1.015); }
+}
+.timer-fs.fs-glass .fs-glint{
+  position:absolute; border-radius:50%; opacity:.7;
+  animation-name:fsGlintTwinkle; animation-timing-function:ease-in-out; animation-iteration-count:infinite;
+}
+.timer-fs.fs-glass .fs-glint.v{ background:#8A5CE8; box-shadow:0 0 7px rgba(138,92,232,.7); }
+.timer-fs.fs-glass .fs-glint.c{ background:#E8734F; box-shadow:0 0 7px rgba(232,115,79,.7); }
+.timer-fs.fs-glass .fs-glint.g{ background:#E7A93E; box-shadow:0 0 7px rgba(231,169,62,.7); }
+.timer-fs.fs-glass .fs-glint.s{ background:#4FA3D8; box-shadow:0 0 7px rgba(79,163,216,.7); }
+@keyframes fsGlintTwinkle{ 0%,100%{ opacity:.2; transform:scale(.7); } 50%{ opacity:.9; transform:scale(1.2); } }
+.timer-fs.fs-glass .fs-stage{
+  background:rgba(255,255,255,0.5); backdrop-filter:blur(20px) saturate(1.3); -webkit-backdrop-filter:blur(20px) saturate(1.3);
+  border-radius:30px; padding:38px 44px; border:1px solid rgba(255,255,255,0.7);
+  box-shadow:0 20px 60px rgba(138,92,232,0.18);
+}
+.timer-fs.fs-glass .fs-time{ text-shadow:0 0 26px rgba(138,92,232,.35); }
+.timer-fs.fs-glass .fs-ring-fg{ filter:drop-shadow(0 0 7px rgba(138,92,232,.5)); }
+.timer-fs.fs-glass .fs-label,.timer-fs.fs-glass .fs-subject{ letter-spacing:.06em; }
+
 /* ===== Stats ===== */
 .barrow{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
 .barrow .lbl{width:110px;font-size:12.5px;font-weight:500;flex-shrink:0;}
@@ -1013,12 +1175,18 @@ if('serviceWorker' in navigator){
 // added the Diagnostic theme; 3.12.0 bumped MINOR for an accessibility pass across
 // the app (keyboard navigation, screen-reader labelling, focus management on
 // modals) and to stop the sync code field from displaying a previously-saved code
-// in plain text. This release bumps MINOR again to 3.13.0 for the Halftone theme: a
-// dot-screen night sky with drifting clouds behind the whole app, its own hero
-// cloud artwork in the full-screen timer, and an ink-dot page-load/section-switch
-// animation that only runs while Halftone is the active theme.
-const APP_VERSION='3.13.0';
-const APP_CODENAME='Nimbus';
+// in plain text. 3.13.0 bumped MINOR again for the Halftone theme: a dot-screen
+// night sky with drifting clouds behind the whole app, its own hero cloud artwork
+// in the full-screen timer, and an ink-dot page-load/section-switch animation that
+// only runs while Halftone is the active theme. This release bumps MINOR again to
+// 3.14.0 for the Glass theme: a canvas-painted field of long, wiggly iridescent
+// "ribbon" lines behind the whole app, seen through frosted glass panels; a
+// matching wiggly-ribbon flower as the full-screen timer's hero art; and a
+// page-load/section-switch reveal that sweeps left-to-right — the mirror image of
+// Halftone's top-to-bottom one — so the two motion themes never feel like reskins
+// of each other.
+const APP_VERSION='3.14.0';
+const APP_CODENAME='Prism';
 // The ONE intentional difference between the main and beta deployments'
 // index.html: everything else stays byte-identical. Set to 'beta' in the
 // beta copy only, so the version display below reads e.g. "Beta 3.10.0"
@@ -1167,11 +1335,14 @@ let pendingLockedImport=null; // {parsed, sourceHandle, sourceName} awaiting a p
 // rather than a local file. There's no fileHandle in this mode, so saves go to a per-account
 // device cache (localStorage) instead, and the syncbar's button talks to the cloud instead of disk.
 let cloudMode=false;
-// --- Halftone theme effects (see HALFTONE THEME EFFECTS below) ---
-let lastAppliedPalette=null; // lets us detect "just switched into halftone" to fire the curtain once
+// --- Theme background/entrance effects (see HALFTONE THEME EFFECTS + GLASS THEME EFFECTS below) ---
+let lastAppliedPalette=null; // lets us detect "just switched into halftone/glass" to fire the curtain once
 let lastRenderedTab=null;    // lets render() know a tab switch (not just a data refresh) happened
 let haloBlobs=null;          // this session's cloud-cluster layout, reused across resizes/re-renders
 let halftoneResizeBound=false;
+let glassRibbons=null;       // this session's ribbon-field layout, reused across resizes/re-renders
+let glassResizeBound=false;
+let glassFsResizeBound=false; // separate debounce binding for the full-screen hero flower canvas
 // active=true from the moment a session first starts until Reset or Finish&log — stays true
 // through pauses and through the automatic work->break->work handoff, so the subject select
 // (which checks `active`, not `running`) can't be changed mid-session by pausing and swapping.
@@ -1807,6 +1978,12 @@ function setupThemeEffects(){
   }else{
     teardownHalftoneBackground();
   }
+  if(palette==='glass'){
+    setupGlassBackground();
+    if(lastAppliedPalette!=='glass') playGlassCurtain();
+  }else{
+    teardownGlassBackground();
+  }
   lastAppliedPalette=palette;
 }
 
@@ -1962,6 +2139,214 @@ function triggerHalftoneSectionTransition(main){
   main.classList.add('section-in');
 }
 
+/* ============================= GLASS THEME EFFECTS =============================
+   Everything below is exclusive to the Glass palette: a canvas-painted field of
+   long, wiggly "ribbon" lines behind the whole app — seen through frosted, blurred
+   glass panels (the sidebar, cards, the sync bar, modals) — a matching wiggly-ribbon
+   flower as the full-screen timer's hero art, and a left-to-right sweep reveal (the
+   mirror image of Halftone's top-to-bottom one) that plays the first time this theme
+   appears and again on every tab switch while it's active. Nothing here runs, or has
+   any effect, for any other theme. */
+const GLASS_HUES=[
+  {r:138,g:92,b:232},  // violet — accent-study
+  {r:232,g:115,b:79},  // coral — accent-due
+  {r:231,g:169,b:62},  // gold — accent-gold
+  {r:79,g:163,b:216},  // sky blue — accent-info
+  {r:224,g:102,b:168}  // orchid pink, for extra iridescent variety
+];
+// Draws one wiggly ribbon per entry in `ribbons` — a gently sine-waving vertical
+// line running the full height of the canvas — over a soft paper-to-lilac gradient.
+// Used both for the page-wide backdrop and the full-screen curtain, with different
+// density/opacity via `opts`.
+function drawGlassStrandField(ctx,w,h,ribbons,opts){
+  opts=opts||{};
+  const grad=ctx.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0,opts.bgTop||'#FBF8F5');
+  grad.addColorStop(1,opts.bgBottom||'#F3ECFB');
+  ctx.fillStyle=grad;
+  ctx.fillRect(0,0,w,h);
+  const steps=opts.steps||64, alphaMul=opts.alphaMul||1, widthMul=opts.widthMul||1;
+  ribbons.forEach(rb=>{
+    const baseX=rb.xFrac*w;
+    ctx.beginPath();
+    for(let s=0;s<=steps;s++){
+      const t=s/steps, y=t*h;
+      const x=baseX+Math.sin(t*Math.PI*rb.freq*2+rb.phase)*rb.amp;
+      if(s===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.strokeStyle=`rgba(${rb.hue.r},${rb.hue.g},${rb.hue.b},${Math.min(1,rb.alpha*alphaMul).toFixed(3)})`;
+    ctx.lineWidth=rb.width*widthMul;
+    ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.shadowColor=`rgba(${rb.hue.r},${rb.hue.g},${rb.hue.b},${Math.min(0.5,rb.alpha*alphaMul*1.6).toFixed(3)})`;
+    ctx.shadowBlur=opts.glow!=null?opts.glow:7;
+    ctx.stroke();
+  });
+  ctx.shadowBlur=0;
+}
+// A loose field of ribbon strands spread evenly across the width with a little
+// jitter, randomized a bit each time so the page looks slightly different every
+// time this theme is switched on — mirrors Halftone's generateHaloBlobs().
+function generateGlassRibbons(count){
+  const ribbons=[];
+  for(let i=0;i<count;i++){
+    ribbons.push({
+      xFrac:(i+0.5)/count+(Math.random()-0.5)*(0.7/count),
+      amp:10+Math.random()*32,
+      freq:1.1+Math.random()*2.4,
+      phase:Math.random()*Math.PI*2,
+      width:1+Math.random()*2.2,
+      hue:GLASS_HUES[Math.floor(Math.random()*GLASS_HUES.length)],
+      alpha:0.08+Math.random()*0.16
+    });
+  }
+  return ribbons;
+}
+function redrawGlassBackground(){
+  const canvas=document.getElementById('glassBgCanvas');
+  if(!canvas||!glassRibbons) return;
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  const w=window.innerWidth, h=window.innerHeight;
+  canvas.width=Math.floor(w*dpr); canvas.height=Math.floor(h*dpr);
+  const ctx=canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  drawGlassStrandField(ctx,w,h,glassRibbons,{bgTop:'#FBF8F5',bgBottom:'#F0E5FA',glow:6});
+}
+function setupGlassBackground(){
+  if(document.getElementById('glassBgLayer')) return; // already set up for this "session" of the theme
+  const layer=document.createElement('div');
+  layer.id='glassBgLayer';
+  layer.setAttribute('aria-hidden','true');
+  layer.style.cssText='position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;';
+  const canvas=document.createElement('canvas');
+  canvas.id='glassBgCanvas';
+  canvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;';
+  layer.appendChild(canvas);
+  document.body.appendChild(layer);
+  glassRibbons=generateGlassRibbons(52);
+  redrawGlassBackground();
+  if(!glassResizeBound){
+    let resizeT=null;
+    window.addEventListener('resize',()=>{
+      clearTimeout(resizeT);
+      resizeT=setTimeout(()=>{ if(document.getElementById('glassBgLayer')) redrawGlassBackground(); },150);
+    });
+    glassResizeBound=true;
+  }
+}
+function teardownGlassBackground(){
+  const layer=document.getElementById('glassBgLayer');
+  if(layer) layer.remove();
+  glassRibbons=null;
+}
+// The ribbon curtain: a densely-coloured wiggly-line field that wipes away
+// left-to-right (see .glass-curtain / @keyframes glassCurtainOut in the CSS) the
+// moment this theme first appears — on opening the ledger file if it's already the
+// saved theme, or right when switching into it from Settings. Skips entirely under
+// reduced-motion, since its un-animated resting state is a full-screen cover — it
+// must never be left on screen without its wipe running.
+function playGlassCurtain(){
+  if(prefersReducedMotion()) return;
+  const curtain=document.createElement('div');
+  curtain.className='glass-curtain';
+  curtain.setAttribute('aria-hidden','true');
+  const canvas=document.createElement('canvas');
+  curtain.appendChild(canvas);
+  const sweep=document.createElement('div');
+  sweep.className='glass-curtain-sweep';
+  curtain.appendChild(sweep);
+  document.body.appendChild(curtain);
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  const w=window.innerWidth, h=window.innerHeight;
+  canvas.width=Math.floor(w*dpr); canvas.height=Math.floor(h*dpr);
+  const ctx=canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  drawGlassStrandField(ctx,w,h,generateGlassRibbons(70),{bgTop:'#FBF8F5',bgBottom:'#EEE1FA',glow:9,alphaMul:2.4,widthMul:1.3});
+  const remove=()=>{ if(curtain.parentNode) curtain.remove(); };
+  curtain.addEventListener('animationend',remove);
+  setTimeout(remove,2200); // safety net in case animationend never fires
+}
+// Called from render() when the active tab just changed while Glass is active —
+// restarts the CSS reveal on #main (see .section-in / @keyframes glassMainIn).
+function triggerGlassSectionTransition(main){
+  if(prefersReducedMotion()) return;
+  main.classList.remove('section-in');
+  void main.offsetWidth; // force reflow so re-adding the class restarts the animation
+  main.classList.add('section-in');
+}
+// A fixed, hand-composed set of wiggly ribbon "petals" radiating from a centre point
+// — deterministic (no Math.random()) so the full-screen hero flower always blooms
+// the same cozy shape, though it varies enough per petal (via its index) to read as
+// organic rather than mechanical. Mirrors Halftone's hardcoded renderFsCloud blobs.
+function buildGlassFlowerPetals(){
+  const N=44, petals=[];
+  for(let i=0;i<N;i++){
+    petals.push({
+      angle:(i/N)*Math.PI*2,
+      len:0.30+0.20*(0.5+0.5*Math.sin(i*2.399963)),
+      amp:0.05+0.035*Math.sin(i*1.7+1.1),
+      freq:2.3+0.9*Math.sin(i*0.53),
+      phase:i*0.9,
+      width:2+2.2*Math.pow(Math.sin(i*0.77+0.4),2),
+      hue:GLASS_HUES[i%GLASS_HUES.length],
+      alpha:0.6+0.3*Math.sin(i*0.31+0.6)
+    });
+  }
+  return petals;
+}
+function drawGlassFlower(ctx,w,h,petals,opts){
+  opts=opts||{};
+  const cx=w*(opts.cx!=null?opts.cx:0.5), cy=h*(opts.cy!=null?opts.cy:0.5);
+  const R=Math.min(w,h)*(opts.scale!=null?opts.scale:0.46);
+  const steps=opts.steps||40;
+  petals.forEach(p=>{
+    const pts=[];
+    for(let s=0;s<=steps;s++){
+      const t=s/steps, r=t*p.len*R;
+      const wig=Math.sin(t*Math.PI*p.freq+p.phase)*p.amp*R*t;
+      pts.push([cx+Math.cos(p.angle)*r-Math.sin(p.angle)*wig, cy+Math.sin(p.angle)*r+Math.cos(p.angle)*wig]);
+    }
+    ctx.beginPath();
+    pts.forEach((pt,i)=>{ if(i===0) ctx.moveTo(pt[0],pt[1]); else ctx.lineTo(pt[0],pt[1]); });
+    ctx.strokeStyle=`rgba(${p.hue.r},${p.hue.g},${p.hue.b},${p.alpha.toFixed(2)})`;
+    ctx.lineWidth=p.width; ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.shadowColor=`rgba(${p.hue.r},${p.hue.g},${p.hue.b},0.55)`;
+    ctx.shadowBlur=opts.glow!=null?opts.glow:11;
+    ctx.stroke();
+    ctx.beginPath();
+    pts.forEach((pt,i)=>{ if(i===0) ctx.moveTo(pt[0],pt[1]); else ctx.lineTo(pt[0],pt[1]); });
+    ctx.strokeStyle=`rgba(255,255,255,${(p.alpha*0.35).toFixed(2)})`;
+    ctx.lineWidth=Math.max(0.6,p.width*0.3); ctx.shadowBlur=0;
+    ctx.stroke();
+  });
+}
+// Paints the full-screen "cozy flower" hero art for the Glass theme onto its canvas.
+// Must run after fsFxMarkup's canvas tag has actually been inserted into the DOM
+// (innerHTML alone never executes a canvas's drawing — see the renderFullscreenTimer
+// call sites).
+function renderFsGlassFlower(){
+  const canvas=document.getElementById('fsFlowerCanvas');
+  if(!canvas) return;
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  const w=canvas.clientWidth||window.innerWidth, h=canvas.clientHeight||window.innerHeight;
+  canvas.width=Math.floor(w*dpr); canvas.height=Math.floor(h*dpr);
+  const ctx=canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  drawGlassFlower(ctx,w,h,buildGlassFlowerPetals(),{cx:0.5,cy:0.5,scale:0.46,glow:12});
+  // Re-paint (rather than just letting CSS stretch the old raster) if the window is
+  // resized while the full-screen flower is still on screen — otherwise the petals
+  // would warp non-uniformly since width/height rarely resize by the same ratio.
+  if(!glassFsResizeBound){
+    let fsResizeT=null;
+    window.addEventListener('resize',()=>{
+      clearTimeout(fsResizeT);
+      fsResizeT=setTimeout(()=>{
+        if(timerFullscreen && (state.settings.palette||'ledger')==='glass' && document.getElementById('fsFlowerCanvas')) renderFsGlassFlower();
+      },150);
+    });
+    glassFsResizeBound=true;
+  }
+}
+
 /* ============================= NAV ============================= */
 const TABS=[
   {id:'today',label:'Today',icon:'<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'},
@@ -2108,7 +2493,11 @@ function render(){
   else if(activeTab==='stats') main.innerHTML=renderStats();
   else if(activeTab==='subjects') main.innerHTML=renderSubjects();
   else if(activeTab==='settings') main.innerHTML=renderSettings();
-  if(tabChanged && (state.settings.palette||'ledger')==='halftone') triggerHalftoneSectionTransition(main);
+  if(tabChanged){
+    const activePalette=state.settings.palette||'ledger';
+    if(activePalette==='halftone') triggerHalftoneSectionTransition(main);
+    else if(activePalette==='glass') triggerGlassSectionTransition(main);
+  }
   lastRenderedTab=activeTab;
   updateLiveSessionBadge();
   updateStopwatchDisplays();
@@ -2671,6 +3060,19 @@ function fsFxMarkup(palette, frac){
     }
     return `<div class="fs-fx"><canvas class="fs-cloud-canvas" id="fsCloudCanvas" aria-hidden="true"></canvas>${twinkles}</div>`;
   }
+  if(palette==='glass'){
+    // The flower itself is painted onto this canvas by renderFsGlassFlower(), called
+    // right after this markup is inserted into the DOM (a plain <canvas> tag paints
+    // nothing on its own). Glints are cheap DOM/CSS and can be generated right here.
+    let glints='';
+    const hueCls=['v','c','g','s'];
+    for(let i=0;i<16;i++){
+      const size=(2+Math.random()*3).toFixed(1);
+      const cls=hueCls[Math.floor(Math.random()*hueCls.length)];
+      glints+=`<div class="fs-glint ${cls}" style="width:${size}px;height:${size}px;left:${(Math.random()*100).toFixed(1)}%;top:${(Math.random()*100).toFixed(1)}%;animation-duration:${(2.6+Math.random()*3.2).toFixed(1)}s;animation-delay:${(Math.random()*4).toFixed(1)}s;"></div>`;
+    }
+    return `<div class="fs-fx"><canvas class="fs-flower-canvas" id="fsFlowerCanvas" aria-hidden="true"></canvas>${glints}</div>`;
+  }
   return `<div class="fs-fx"></div>`; // ledger + terminal use pseudo-element glows only
 }
 // Paints the full-screen "cozy cloud" hero art for the halftone theme — a bigger, more
@@ -2734,6 +3136,7 @@ function renderFullscreenTimer(){
       </div>`;
     }
     if(palette==='halftone') renderFsCloud();
+    if(palette==='glass') renderFsGlassFlower();
     return;
   }
 
@@ -2765,6 +3168,7 @@ function renderFullscreenTimer(){
     <div class="fs-hint">Esc to exit full screen</div>
   </div>`;
   if(palette==='halftone') renderFsCloud();
+  if(palette==='glass') renderFsGlassFlower();
 }
 
 /* ============================= STUDY LOG (daily/monthly history) ============================= */
@@ -3599,6 +4003,11 @@ function renderSettings(){
         <div class="theme-preview" style="background:#0E1A2B;"><span style="background:#57C6E0;"></span><span style="background:#F4C15E;"></span></div>
         Halftone
         <div class="theme-desc">Dot-screen clouds</div>
+      </div>
+      <div class="theme-opt ${sett.palette==='glass'?'sel':''}" data-action="set-palette" data-palette="glass" role="button" tabindex="0" aria-pressed="${sett.palette==='glass'}">
+        <div class="theme-preview" style="background:linear-gradient(135deg,#FBF8F5,#F0E5FA);"><span style="background:#8A5CE8;"></span><span style="background:#E8734F;"></span></div>
+        Glass
+        <div class="theme-desc">Wiggly glass ribbons</div>
       </div>
     </div>
   </div>
