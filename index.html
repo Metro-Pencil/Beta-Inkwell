@@ -612,7 +612,7 @@
 }
 .glass-curtain canvas{ position:absolute; inset:0; width:100%; height:100%; }
 .glass-curtain-sweep{
-  position:absolute; top:0; bottom:0; left:0; width:84px;
+  position:absolute; top:0; bottom:0; left:0; width:clamp(34px,9vw,84px);
   background:linear-gradient(90deg, transparent, rgba(255,255,255,0.95) 55%, rgba(138,92,232,0.55) 82%, transparent);
   mask-image: linear-gradient(to right, black 0%, transparent 100%);
   -webkit-mask-image: linear-gradient(to right, black 0%, transparent 100%);
@@ -635,7 +635,7 @@
 [data-palette="glass"] main{ position:relative; }
 [data-palette="glass"] main.section-in{ animation: glassMainIn .6s cubic-bezier(.22,.8,.32,1) both; }
 [data-palette="glass"] main.section-in::after{
-  content:''; position:absolute; top:0; bottom:0; left:0; width:64px;
+  content:''; position:absolute; top:0; bottom:0; left:0; width:clamp(26px,7vw,64px);
   background:linear-gradient(90deg, transparent, rgba(255,255,255,0.9) 55%, rgba(138,92,232,0.45) 82%, transparent);
   mask-image: linear-gradient(to right, black 0%, transparent 100%);
   -webkit-mask-image: linear-gradient(to right, black 0%, transparent 100%);
@@ -1178,15 +1178,30 @@ if('serviceWorker' in navigator){
 // in plain text. 3.13.0 bumped MINOR again for the Halftone theme: a dot-screen
 // night sky with drifting clouds behind the whole app, its own hero cloud artwork
 // in the full-screen timer, and an ink-dot page-load/section-switch animation that
-// only runs while Halftone is the active theme. This release bumps MINOR again to
-// 3.14.0 for the Glass theme: a canvas-painted field of long, wiggly iridescent
-// "ribbon" lines behind the whole app, seen through frosted glass panels; a
-// matching wiggly-ribbon flower as the full-screen timer's hero art; and a
-// page-load/section-switch reveal that sweeps left-to-right — the mirror image of
-// Halftone's top-to-bottom one — so the two motion themes never feel like reskins
-// of each other.
-const APP_VERSION='3.14.0';
-const APP_CODENAME='Prism';
+// only runs while Halftone is the active theme. 3.14.0 bumped MINOR again to add
+// the Glass theme: a canvas-painted field of long, wiggly iridescent "ribbon" lines
+// behind the whole app, seen through frosted glass panels; a matching wiggly-ribbon
+// flower as the full-screen timer's hero art; and a page-load/section-switch reveal
+// that sweeps left-to-right — the mirror image of Halftone's top-to-bottom one.
+// This release bumps MINOR again to 3.15.0 for a fresh set of custom app icons (all
+// four manifest sizes — see icon-192.png, icon-512.png, icon-maskable-192.png,
+// icon-maskable-512.png — replacing the old flat placeholder mark with the Glass
+// theme's wiggly-ribbon flower), and fixes a Glass-theme bug along the way: its
+// ribbon field and entrance/section sweep bars were sized for desktop and didn't
+// scale down for narrow phone screens, so the same ~52-ribbon field that looked
+// right at 1280px was crammed into a ~380px-wide phone with barely any gap between
+// ribbons. Ribbon count, wiggle amplitude, and sweep-bar width now all scale with
+// viewport width. This release bumps MINOR again to 3.16.0 to redraw all four app
+// icons a second time: 3.15.0's rainbow flower mark was a loose gesture at the
+// Glass theme's colours, but didn't actually match the reference art's material —
+// a dense cluster of tapered, glassy bristle blades with a cool silvery-lavender
+// sheen on the outer curves and a muted amber-copper glow in the shadowed valleys
+// between lobes, on a plain white ground. The new icon draws ~130 individually
+// tapered, gently-bowed blades with that same cool/warm colour grading instead of
+// flat rainbow hues, and drops the flat-color background for the reference's
+// plain near-white one.
+const APP_VERSION='3.16.0';
+const APP_CODENAME='Filament';
 // The ONE intentional difference between the main and beta deployments'
 // index.html: everything else stays byte-identical. Set to 'beta' in the
 // beta copy only, so the version display below reads e.g. "Beta 3.10.0"
@@ -2186,12 +2201,17 @@ function drawGlassStrandField(ctx,w,h,ribbons,opts){
 // A loose field of ribbon strands spread evenly across the width with a little
 // jitter, randomized a bit each time so the page looks slightly different every
 // time this theme is switched on — mirrors Halftone's generateHaloBlobs().
-function generateGlassRibbons(count){
+// `viewportW` scales each ribbon's own wiggle amplitude to how tightly packed the
+// field is at this width, so a narrow phone screen gets fewer, calmer ribbons
+// instead of the same dense desktop field squeezed into far less space.
+function generateGlassRibbons(count,viewportW){
+  const spacing=(viewportW||1280)/count;
+  const maxAmp=Math.max(6,Math.min(34,spacing*0.85));
   const ribbons=[];
   for(let i=0;i<count;i++){
     ribbons.push({
       xFrac:(i+0.5)/count+(Math.random()-0.5)*(0.7/count),
-      amp:10+Math.random()*32,
+      amp:maxAmp*0.4+Math.random()*maxAmp*0.6,
       freq:1.1+Math.random()*2.4,
       phase:Math.random()*Math.PI*2,
       width:1+Math.random()*2.2,
@@ -2201,6 +2221,13 @@ function generateGlassRibbons(count){
   }
   return ribbons;
 }
+// How many ribbons the page-wide backdrop gets at a given viewport width — about
+// one every 24px, so the field reads the same way on a 380px phone as it does on a
+// 1400px monitor, clamped so it never gets too sparse or too dense either way.
+function glassBgRibbonCount(w){ return Math.max(16,Math.min(60,Math.round(w/24))); }
+// The curtain wants a visibly denser field than the resting backdrop (it's only on
+// screen for just over a second), about one ribbon every 17px.
+function glassCurtainRibbonCount(w){ return Math.max(20,Math.min(80,Math.round(w/17))); }
 function redrawGlassBackground(){
   const canvas=document.getElementById('glassBgCanvas');
   if(!canvas||!glassRibbons) return;
@@ -2222,13 +2249,22 @@ function setupGlassBackground(){
   canvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;';
   layer.appendChild(canvas);
   document.body.appendChild(layer);
-  glassRibbons=generateGlassRibbons(52);
+  glassRibbons=generateGlassRibbons(glassBgRibbonCount(window.innerWidth),window.innerWidth);
   redrawGlassBackground();
   if(!glassResizeBound){
     let resizeT=null;
     window.addEventListener('resize',()=>{
       clearTimeout(resizeT);
-      resizeT=setTimeout(()=>{ if(document.getElementById('glassBgLayer')) redrawGlassBackground(); },150);
+      resizeT=setTimeout(()=>{
+        if(document.getElementById('glassBgLayer')){
+          // A full re-generate (not just a redraw) on resize, so rotating a phone or
+          // dragging a window to a very different width re-fits the ribbon count and
+          // amplitude to the new size rather than keeping whichever density the
+          // theme happened to start at.
+          glassRibbons=generateGlassRibbons(glassBgRibbonCount(window.innerWidth),window.innerWidth);
+          redrawGlassBackground();
+        }
+      },150);
     });
     glassResizeBound=true;
   }
@@ -2260,7 +2296,7 @@ function playGlassCurtain(){
   canvas.width=Math.floor(w*dpr); canvas.height=Math.floor(h*dpr);
   const ctx=canvas.getContext('2d');
   ctx.setTransform(dpr,0,0,dpr,0,0);
-  drawGlassStrandField(ctx,w,h,generateGlassRibbons(70),{bgTop:'#FBF8F5',bgBottom:'#EEE1FA',glow:9,alphaMul:2.4,widthMul:1.3});
+  drawGlassStrandField(ctx,w,h,generateGlassRibbons(glassCurtainRibbonCount(w),w),{bgTop:'#FBF8F5',bgBottom:'#EEE1FA',glow:9,alphaMul:2.4,widthMul:1.3});
   const remove=()=>{ if(curtain.parentNode) curtain.remove(); };
   curtain.addEventListener('animationend',remove);
   setTimeout(remove,2200); // safety net in case animationend never fires
