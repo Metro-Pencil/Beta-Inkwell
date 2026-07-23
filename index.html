@@ -321,37 +321,43 @@
 
 /* ===== THEME: Diagnostic — dark oxblood terminal, dithered readouts, monospace HUD ===== */
 [data-palette="diagnostic"]{
-  --paper:#241412;
-  --paper-2:#2E1917;
-  --paper-3:#3B211E;
-  --ink:#E8DDC8;
-  --ink-soft:#9C8570;
+  --paper:#1B100E;
+  --paper-2:#271613;
+  --paper-3:#38211D;
+  --ink:#ECE0C9;
+  --ink-soft:#AB9179;
   --line:#4A2B26;
-  --accent-study:#8FA88A;
-  --accent-study-soft:#28352A;
-  --accent-due:#C0574C;
+  --accent-study:#93AC8C;
+  --accent-study-soft:#26332A;
+  --accent-due:#C6604F;
   --accent-due-soft:#3D211D;
-  --accent-gold:#C99A52;
+  --accent-gold:#D2A257;
   --accent-gold-soft:#3A2E1C;
-  --accent-info:#7C93A6;
+  --accent-info:#87A3B0;
   --accent-info-soft:#232E36;
+  --diag-glow:rgba(147,172,140,0.4);
   --radius:0px;
   --radius-sm:0px;
   --font-display:'JetBrains Mono',ui-monospace,monospace;
   --font-body:'JetBrains Mono',ui-monospace,monospace;
   --font-mono:'JetBrains Mono',ui-monospace,monospace;
   --shadow:none;
-  --on-study:#1B2119;
-  --on-due:#F4EAD9;
+  --on-study:#161D15;
+  --on-due:#F7ECDD;
 }
+/* Real background art (fog-grain, drifting trace lines, breathing vignette) is a
+   <canvas> + overlay painted by JS into #diagnosticBgLayer, fixed behind #app — see
+   setupDiagnosticBackground(). This flat grid is just a same-tone fallback for the
+   instant before that canvas paints, and for no-JS/print contexts. */
 [data-palette="diagnostic"] body{
+  background-color:var(--paper);
   background-image:
-    linear-gradient(rgba(232,221,200,0.05) 2px, transparent 2px),
-    linear-gradient(90deg, rgba(232,221,200,0.05) 2px, transparent 2px),
-    repeating-linear-gradient(0deg, rgba(232,221,200,0.02) 0px, rgba(232,221,200,0.02) 1px, transparent 1px, transparent 3px);
-  background-size:13px 13px, 13px 13px, auto;
+    linear-gradient(rgba(236,224,201,0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(236,224,201,0.045) 1px, transparent 1px);
+  background-size:13px 13px, 13px 13px;
   letter-spacing:.01em;
 }
+[data-palette="diagnostic"] #app{ position:relative; z-index:1; }
 [data-palette="diagnostic"] svg{ stroke-linecap:square; stroke-linejoin:miter; }
 [data-palette="diagnostic"] h1,[data-palette="diagnostic"] h2,[data-palette="diagnostic"] h3,[data-palette="diagnostic"] .display{
   text-transform:uppercase; font-weight:700; letter-spacing:.06em;
@@ -359,7 +365,13 @@
 [data-palette="diagnostic"] h1::before,[data-palette="diagnostic"] h2::before,[data-palette="diagnostic"] h3::before{
   content:'// '; color:var(--accent-study); opacity:.6;
 }
-[data-palette="diagnostic"] .card{ position:relative; box-shadow:none; }
+[data-palette="diagnostic"] .sidebar,[data-palette="diagnostic"] #syncbar{
+  background-color:rgba(39,22,19,0.72); backdrop-filter:blur(6px);
+}
+[data-palette="diagnostic"] .card{
+  position:relative; box-shadow:none;
+  background-image:repeating-linear-gradient(0deg, rgba(236,224,201,0.025) 0px, rgba(236,224,201,0.025) 1px, transparent 1px, transparent 3px);
+}
 [data-palette="diagnostic"] .card::before,[data-palette="diagnostic"] .card::after{
   content:''; position:absolute; width:8px; height:8px; opacity:.55; pointer-events:none;
 }
@@ -367,10 +379,14 @@
 [data-palette="diagnostic"] .card::after{ bottom:-1px; right:-1px; border-bottom:2px solid var(--accent-study); border-right:2px solid var(--accent-study); }
 [data-palette="diagnostic"] .btn{ text-transform:uppercase; letter-spacing:.05em; font-size:12px; font-weight:600; border-radius:0; box-shadow:2px 2px 0 var(--line); }
 [data-palette="diagnostic"] .btn:active{ box-shadow:1px 1px 0 var(--line); transform:translate(1px,1px); }
-[data-palette="diagnostic"] .btn.primary{ box-shadow:2px 2px 0 rgba(0,0,0,.3); }
+[data-palette="diagnostic"] .btn.primary{ box-shadow:2px 2px 0 rgba(0,0,0,.3); animation:diagPulse 3.8s ease-in-out infinite; }
 [data-palette="diagnostic"] .btn.primary:active{ box-shadow:1px 1px 0 rgba(0,0,0,.3); transform:translate(1px,1px); }
 [data-palette="diagnostic"] .navitem{ text-transform:uppercase; font-size:12px; letter-spacing:.05em; font-weight:600; border-radius:0; }
-[data-palette="diagnostic"] .navitem.active{ box-shadow:0 0 9px rgba(143,168,138,0.35); }
+[data-palette="diagnostic"] .navitem.active{ animation:diagPulse 3.8s ease-in-out infinite; }
+@keyframes diagPulse{
+  0%,100%{ box-shadow:0 0 7px var(--diag-glow); }
+  50%{ box-shadow:0 0 15px var(--diag-glow); }
+}
 [data-palette="diagnostic"] .tag{ text-transform:uppercase; letter-spacing:.04em; border-radius:0; }
 [data-palette="diagnostic"] .brand-mark,[data-palette="diagnostic"] .swatch,[data-palette="diagnostic"] .wg-block,[data-palette="diagnostic"] .cal-cell{ border-radius:0; }
 [data-palette="diagnostic"] .barrow .track{ border:1px solid var(--line); border-radius:0; }
@@ -381,6 +397,74 @@
 }
 [data-palette="diagnostic"] .barrow .val{ text-transform:uppercase; }
 [data-palette="diagnostic"] .empty{ border-style:solid; border-radius:0; }
+
+/* --- Diagnostic-only baseline-log ticker: a small fixed overlay, bottom-left, that
+   quietly cycles cryptic monospace readout lines — a mix of flavor text and real
+   figures pulled live from state (streak, sessions logged, hours banked, homework
+   overdue). Built/torn down in startDiagnosticTicker()/stopDiagnosticTicker(); text
+   content swapped with a brief decode/scramble via scrambleInto(). Hidden on narrow
+   phone screens so it never collides with the mobile top nav. --- */
+.diagnostic-ticker{
+  position:fixed; left:14px; bottom:14px; z-index:40; pointer-events:none;
+  font-family:var(--font-mono); font-size:10.5px; letter-spacing:.03em;
+  color:var(--accent-study); background:rgba(27,16,14,0.82);
+  border:1px solid var(--line); padding:6px 10px; max-width:min(52vw,360px);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  box-shadow:0 0 12px rgba(0,0,0,.35);
+}
+.diagnostic-ticker::before{ content:'◆ '; opacity:.7; }
+@media(max-width:760px){ .diagnostic-ticker{ display:none; } }
+@media(prefers-reduced-motion:reduce){ .diagnostic-ticker{ display:none; } }
+
+/* --- Diagnostic-only entrance: the screen "blinks" shut then open the first time
+   this theme is shown (page load, or switching into it from Settings) — a thin
+   oxblood eyelid slit closes to a line at the midpoint of the animation, then lifts
+   away entirely, rather than the directional wipes Halftone/Glass use. --- */
+.diagnostic-curtain{
+  position:fixed; inset:0; z-index:9999; pointer-events:none;
+  background-color:#1B100E;
+  background-image:
+    linear-gradient(rgba(236,224,201,0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(236,224,201,0.08) 1px, transparent 1px);
+  background-size:13px 13px, 13px 13px;
+  animation: diagnosticCurtainBlink 1.35s cubic-bezier(.6,0,.2,1) forwards;
+}
+.diagnostic-curtain-line{
+  position:absolute; left:0; right:0; top:50%; height:2px; transform:translateY(-50%);
+  background:var(--accent-study,#93AC8C); opacity:0; box-shadow:0 0 18px 3px rgba(147,172,140,0.7);
+  animation: diagnosticCurtainLine 1.35s cubic-bezier(.6,0,.2,1) forwards;
+}
+@keyframes diagnosticCurtainBlink{
+  0%{ clip-path:inset(0 0 0 0); }
+  46%,54%{ clip-path:inset(44% 0 44% 0); }
+  100%{ clip-path:inset(0 0 100% 0); }
+}
+@keyframes diagnosticCurtainLine{
+  0%,40%{ opacity:0; }
+  48%,52%{ opacity:1; }
+  100%{ opacity:0; }
+}
+
+/* --- Diagnostic-only section transitions: main content "blinks" — a quick eyelid
+   close/open — every time the person switches tabs (see render() in the script,
+   which adds/removes .section-in on the persistent #main node). --- */
+[data-palette="diagnostic"] main{ position:relative; }
+[data-palette="diagnostic"] main.section-in{ animation: diagnosticMainBlink .5s cubic-bezier(.22,.8,.32,1) both; }
+[data-palette="diagnostic"] main.section-in::after{
+  content:''; position:absolute; left:0; right:0; top:50%; height:2px; transform:translateY(-50%);
+  background:var(--accent-study); opacity:0; box-shadow:0 0 14px 3px rgba(147,172,140,0.6);
+  pointer-events:none; z-index:5;
+  animation: diagnosticLineFlash .5s cubic-bezier(.22,.8,.32,1) both;
+}
+@keyframes diagnosticMainBlink{
+  0%{ clip-path:inset(0 0 0 0); opacity:.4; }
+  45%{ clip-path:inset(44% 0 44% 0); opacity:.7; }
+  100%{ clip-path:inset(0 0 0% 0); opacity:1; }
+}
+@keyframes diagnosticLineFlash{
+  0%,100%{ opacity:0; }
+  45%{ opacity:1; }
+}
 
 /* ===== THEME: Halftone — dot-screen night sky, drifting cumulus, print-registration
    texture on every surface. This theme also gets two bespoke animations (see the
@@ -881,32 +965,61 @@ textarea{width:100%;resize:vertical;min-height:64px;}
 .timer-fs.fs-mint .fs-leaf{position:absolute;font-size:22px;opacity:.5;animation:fsSway ease-in-out infinite;}
 @keyframes fsSway{0%,100%{transform:translateY(0) rotate(-8deg);}50%{transform:translateY(-14px) rotate(8deg);}}
 
-/* --- diagnostic: dot-grid HUD + scanning oscilloscope line --- */
+/* --- diagnostic: a hazy oxblood bio-scan. Dot-grid fog + a slow breathing glow;
+   a live "baseline" readline; a large dithered eye whose pupil drifts toward the
+   pointer/finger (see the pointermove/touchmove handler bound near DIAGNOSTIC EYE
+   TRACKING in the script) and blinks on an unhurried, uneven rhythm; a docked strip
+   of twin VERT/HORIZ sparklines, a scrolling PULSE waveform, and four vitals bars —
+   STRESS, DRIFT, ANCHOR, MEMORY — computed from real overdue-homework, session-
+   progress, streak and log-history figures rather than placeholder numbers. See
+   fsFxMarkup()'s 'diagnostic' branch and buildPixelEyeGrid() in the script. --- */
 .timer-fs.fs-diagnostic{background:var(--paper);}
-.timer-fs.fs-diagnostic::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(232,221,200,0.06) 2px,transparent 2px),linear-gradient(90deg,rgba(232,221,200,0.06) 2px,transparent 2px);background-size:13px 13px;z-index:0;}
-.timer-fs.fs-diagnostic .fs-scan{position:absolute;left:0;right:0;height:3px;background:repeating-linear-gradient(90deg,var(--accent-study) 0 4px,transparent 4px 8px);opacity:.5;animation:fsDiagScan 4.5s steps(24) infinite;z-index:0;}
-@keyframes fsDiagScan{0%{top:0%;}100%{top:100%;}}
+.timer-fs.fs-diagnostic::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(236,224,201,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(236,224,201,0.06) 1px,transparent 1px);background-size:13px 13px;z-index:0;}
+.timer-fs.fs-diagnostic::after{content:'';position:absolute;inset:-20%;background:radial-gradient(circle at 50% 32%,var(--diag-glow),transparent 60%);opacity:.5;animation:fsBreathe 7s ease-in-out infinite;z-index:0;}
 .timer-fs.fs-diagnostic .fs-time{letter-spacing:0;}
 .timer-fs.fs-diagnostic .fs-label,.timer-fs.fs-diagnostic .fs-subject{text-transform:uppercase;letter-spacing:.14em;}
 .timer-fs.fs-diagnostic .fs-ringwrap circle{stroke-width:7;}
 .timer-fs.fs-diagnostic .fs-ring-bg{stroke-dasharray:5 4;}
 .timer-fs.fs-diagnostic .fs-ring-fg{stroke-linecap:butt;}
-.timer-fs.fs-diagnostic .fs-eyewrap{position:absolute;left:50%;top:39%;width:min(56vw,285px);height:min(34vw,171px);transform:translate(-50%,-50%);z-index:0;image-rendering:pixelated;}
+
+.timer-fs.fs-diagnostic .fs-readline{position:absolute;left:50%;top:8%;transform:translateX(-50%);font-family:var(--font-mono);font-size:10.5px;letter-spacing:.05em;color:var(--ink-soft);opacity:.8;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;z-index:0;}
+
+.timer-fs.fs-diagnostic .fs-eyewrap{position:absolute;left:50%;top:28%;width:min(52vw,260px);height:min(31vw,156px);transform:translate(-50%,-50%);z-index:0;image-rendering:pixelated;transition:transform .5s cubic-bezier(.2,.8,.2,1);}
 .timer-fs.fs-diagnostic .fs-eye-frame{position:absolute;inset:0;display:grid;grid-template-columns:repeat(15,1fr);grid-template-rows:repeat(9,1fr);}
 .timer-fs.fs-diagnostic .fs-eye-frame i{display:block;}
-.timer-fs.fs-diagnostic .fs-eye-frame.open{animation:fsEyeShowOpen 5.5s steps(1,end) infinite;}
-.timer-fs.fs-diagnostic .fs-eye-frame.closed{opacity:0;animation:fsEyeShowClosed 5.5s steps(1,end) infinite;}
-@keyframes fsEyeShowOpen{0%,87%,100%{opacity:1;}89%,96%{opacity:0;}}
-@keyframes fsEyeShowClosed{0%,87%,100%{opacity:0;}89%,96%{opacity:1;}}
-.timer-fs.fs-diagnostic .fs-eye-frame i.s{background:var(--ink-soft);opacity:.4;}
-.timer-fs.fs-diagnostic .fs-eye-frame i.i{background:var(--accent-study);opacity:.55;}
-.timer-fs.fs-diagnostic .fs-eye-frame i.p{background:var(--paper-3);opacity:.9;}
-.timer-fs.fs-diagnostic .fs-eye-frame i.g{background:var(--ink);opacity:.7;}
+.timer-fs.fs-diagnostic .fs-eye-frame.open{animation:fsEyeShowOpen 6.4s steps(1,end) infinite;}
+.timer-fs.fs-diagnostic .fs-eye-frame.closed{opacity:0;animation:fsEyeShowClosed 6.4s steps(1,end) infinite;}
+@keyframes fsEyeShowOpen{0%,89%,100%{opacity:1;}91%,96%{opacity:0;}}
+@keyframes fsEyeShowClosed{0%,89%,100%{opacity:0;}91%,96%{opacity:1;}}
+.timer-fs.fs-diagnostic .fs-eye-frame i.s{background:var(--ink-soft);opacity:.35;}
+.timer-fs.fs-diagnostic .fs-eye-frame i.i{background:var(--accent-study);opacity:.6;}
+.timer-fs.fs-diagnostic .fs-eye-frame i.p{background:var(--paper-3);opacity:.95;}
+.timer-fs.fs-diagnostic .fs-eye-frame i.g{background:var(--ink);opacity:.8;}
 .timer-fs.fs-diagnostic .fs-eye-frame i.l{background:var(--ink-soft);opacity:.4;}
 .timer-fs.fs-diagnostic .fs-eye-frame i.ls{background:var(--ink-soft);opacity:.2;}
-.timer-fs.fs-diagnostic .fs-lettergrid{position:absolute;left:50%;bottom:68px;transform:translateX(-50%);display:grid;grid-template-columns:repeat(12,1fr);gap:4px;width:min(88vw,540px);font-family:var(--font-mono);font-size:11px;font-weight:700;z-index:0;}
-.timer-fs.fs-diagnostic .fs-gridcell{display:flex;align-items:center;justify-content:center;aspect-ratio:1;border:1px solid var(--line);color:var(--ink-soft);opacity:.55;}
-.timer-fs.fs-diagnostic .fs-gridcell.hit{background:var(--accent-study-soft);color:var(--accent-study);opacity:.9;border-color:var(--accent-study);}
+
+.timer-fs.fs-diagnostic .fs-vitalsdock{position:absolute;left:50%;bottom:52px;transform:translateX(-50%);width:min(88vw,440px);z-index:0;}
+.timer-fs.fs-diagnostic .fs-squiggrow{display:flex;gap:10px;margin-bottom:8px;}
+.timer-fs.fs-diagnostic .fs-squigglebox{flex:1;min-width:0;border:1px solid var(--line);padding:5px 8px 4px;}
+.timer-fs.fs-diagnostic .fs-squigglabel{display:block;font-family:var(--font-mono);font-size:8.5px;letter-spacing:.1em;color:var(--ink-soft);text-transform:uppercase;margin-bottom:2px;}
+.timer-fs.fs-diagnostic .fs-squigglebox svg{width:100%;height:22px;display:block;}
+.timer-fs.fs-diagnostic .fs-squigglebox polyline{fill:none;stroke:var(--ink);stroke-width:2;}
+.timer-fs.fs-diagnostic .fs-pulsewrap{border:1px solid var(--line);height:26px;overflow:hidden;margin-bottom:8px;position:relative;}
+.timer-fs.fs-diagnostic .fs-pulsetrack{display:flex;width:200%;height:100%;animation:fsPulseScroll 8s linear infinite;}
+.timer-fs.fs-diagnostic .fs-pulsetrack svg{width:50%;height:100%;flex-shrink:0;display:block;}
+.timer-fs.fs-diagnostic .fs-pulsetrack polyline{fill:none;stroke:var(--accent-study);stroke-width:1.6;opacity:.85;}
+@keyframes fsPulseScroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+.timer-fs.fs-diagnostic .fs-statbars{display:flex;flex-direction:column;gap:4px;}
+.timer-fs.fs-diagnostic .fs-statbar{display:grid;grid-template-columns:56px 1fr 32px;align-items:center;gap:7px;font-family:var(--font-mono);font-size:9px;letter-spacing:.05em;color:var(--ink-soft);text-transform:uppercase;}
+.timer-fs.fs-diagnostic .fs-statbar .track{height:5px;border:1px solid var(--line);position:relative;background:var(--paper-3);}
+.timer-fs.fs-diagnostic .fs-statbar .fill{position:absolute;top:0;left:0;bottom:0;background:var(--accent-study);background-image:repeating-conic-gradient(rgba(0,0,0,.4) 0% 25%, transparent 0% 50%);background-size:4px 4px;}
+.timer-fs.fs-diagnostic .fs-statbar:first-child .fill{background:var(--accent-due);}
+.timer-fs.fs-diagnostic .fs-statbar .pct{text-align:right;}
+@media(prefers-reduced-motion:reduce){
+  .timer-fs.fs-diagnostic .fs-pulsetrack{animation:none;}
+  .timer-fs.fs-diagnostic .fs-eye-frame.open,.timer-fs.fs-diagnostic .fs-eye-frame.closed{animation:none;}
+  .timer-fs.fs-diagnostic .fs-eye-frame.closed{opacity:0;}
+}
 
 /* --- halftone: a big cozy dot-screen cloud drawn to <canvas> by renderFsCloud(), with a
    slow drift/breathe on the canvas itself (cheap — it's a transform, not a redraw) plus a
@@ -1199,9 +1312,22 @@ if('serviceWorker' in navigator){
 // between lobes, on a plain white ground. The new icon draws ~130 individually
 // tapered, gently-bowed blades with that same cool/warm colour grading instead of
 // flat rainbow hues, and drops the flat-color background for the reference's
-// plain near-white one.
-const APP_VERSION='3.16.0';
-const APP_CODENAME='Filament';
+// plain near-white one. This release bumps MINOR again to 3.17.0 for a full rework
+// of the Diagnostic theme: the first pass (3.10.0) only ever touched three spots —
+// root variables, a couple of card/button rules, and a scanning-line-plus-random-
+// letter-grid full-screen effect — and read as a generic dark terminal rather than
+// the reference's hazy oxblood bio-diagnostic scan. This pass reaches everywhere
+// Halftone and Glass already do: a canvas-painted field of faint drifting trace
+// lines and grain behind the whole app under a slow breathing glow; a bottom-left
+// baseline-log ticker that quietly decodes real streak/session/homework figures
+// into cryptic readouts (diagnosticLogLines()); an entrance/section-switch "blink"
+// (an eyelid-slit clip-path close/open) in place of Halftone's wipe and Glass's
+// sweep; and a rebuilt full-screen hero — a dithered eye whose pupil now drifts
+// toward the pointer or finger, twin sparklines, a scrolling pulse waveform, and
+// four vitals bars (STRESS, DRIFT, ANCHOR, MEMORY) driven by real overdue-homework,
+// session-progress, streak and logged-hours figures instead of placeholder numbers.
+const APP_VERSION='3.17.0';
+const APP_CODENAME='Reverie';
 // The ONE intentional difference between the main and beta deployments'
 // index.html: everything else stays byte-identical. Set to 'beta' in the
 // beta copy only, so the version display below reads e.g. "Beta 3.10.0"
@@ -1358,6 +1484,9 @@ let halftoneResizeBound=false;
 let glassRibbons=null;       // this session's ribbon-field layout, reused across resizes/re-renders
 let glassResizeBound=false;
 let glassFsResizeBound=false; // separate debounce binding for the full-screen hero flower canvas
+let diagnosticTraces=null;   // this session's drifting trace-line layout, reused across resizes
+let diagnosticResizeBound=false;
+let diagnosticTickerTimer=null; // interval id for the baseline-log ticker; cleared on teardown
 // active=true from the moment a session first starts until Reset or Finish&log — stays true
 // through pauses and through the automatic work->break->work handoff, so the subject select
 // (which checks `active`, not `running`) can't be changed mid-session by pausing and swapping.
@@ -1999,6 +2128,14 @@ function setupThemeEffects(){
   }else{
     teardownGlassBackground();
   }
+  if(palette==='diagnostic'){
+    setupDiagnosticBackground();
+    startDiagnosticTicker();
+    if(lastAppliedPalette!=='diagnostic') playDiagnosticCurtain();
+  }else{
+    teardownDiagnosticBackground();
+    stopDiagnosticTicker();
+  }
   lastAppliedPalette=palette;
 }
 
@@ -2383,6 +2520,237 @@ function renderFsGlassFlower(){
   }
 }
 
+/* ============================= DIAGNOSTIC THEME EFFECTS =============================
+   Everything below is exclusive to the Diagnostic palette: a canvas-painted field of
+   faint, drifting oscilloscope trace lines and static grain behind the whole app,
+   under a slow breathing vignette glow; a bottom-left "baseline log" ticker that
+   quietly cycles cryptic readouts mixed with real streak/session/homework figures
+   (diagnosticLogLines()); a blink entrance the first time this theme appears and a
+   matching quick blink on every tab switch while it's active; and the full-screen
+   timer's hero art further down (fsFxMarkup()'s 'diagnostic' branch) — a dithered eye
+   whose pupil drifts toward the pointer, twin sparklines, a scrolling pulse waveform
+   and four vitals bars. Nothing here runs, or has any effect, for any other theme. */
+const DIAGNOSTIC_HUES=[
+  {r:147,g:172,b:140}, // sage — accent-study
+  {r:198,g:96,b:79},   // rust — accent-due
+  {r:210,g:162,b:87},  // amber — accent-gold
+  {r:171,g:145,b:121}  // bone — ink-soft
+];
+// A handful of long, gently sine-waving horizontal trace lines drawn very faintly
+// across the full canvas — an oscilloscope field glimpsed through fog, never meant to
+// be read as data — plus a light scatter of near-invisible flecks for grain. Mirrors
+// Glass's drawGlassStrandField() but with horizontal traces instead of vertical
+// ribbons, matching the reference's waveform readouts rather than a ribbon field.
+function drawDiagnosticField(ctx,w,h,traces,opts){
+  opts=opts||{};
+  ctx.fillStyle=opts.bg||'#1B100E';
+  ctx.fillRect(0,0,w,h);
+  ctx.fillStyle='rgba(236,224,201,0.05)';
+  const grid=13;
+  for(let gx=0;gx<w;gx+=grid){ for(let gy=0;gy<h;gy+=grid){ ctx.fillRect(gx,gy,1,1); } }
+  const steps=opts.steps||90;
+  traces.forEach(tr=>{
+    const baseY=tr.yFrac*h;
+    ctx.beginPath();
+    for(let s=0;s<=steps;s++){
+      const t=s/steps, x=t*w;
+      const y=baseY+Math.sin(t*Math.PI*tr.freq*2+tr.phase)*tr.amp+Math.sin(t*Math.PI*tr.freq*7+tr.phase*1.7)*(tr.amp*0.18);
+      if(s===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.strokeStyle=`rgba(${tr.hue.r},${tr.hue.g},${tr.hue.b},${tr.alpha.toFixed(3)})`;
+    ctx.lineWidth=tr.width;
+    ctx.stroke();
+  });
+  const grainCount=Math.round((w*h)/2400);
+  for(let i=0;i<grainCount;i++){
+    ctx.fillStyle=`rgba(236,224,201,${(Math.random()*0.05).toFixed(3)})`;
+    ctx.fillRect(Math.random()*w,Math.random()*h,1,1);
+  }
+}
+function generateDiagnosticTraces(count,viewportW){
+  const traces=[];
+  for(let i=0;i<count;i++){
+    traces.push({
+      yFrac:(i+0.5)/count+(Math.random()-0.5)*(0.6/count),
+      amp:12+Math.random()*(viewportW<600?14:26),
+      freq:0.6+Math.random()*1.8,
+      phase:Math.random()*Math.PI*2,
+      width:1+Math.random()*1.4,
+      hue:DIAGNOSTIC_HUES[Math.floor(Math.random()*DIAGNOSTIC_HUES.length)],
+      alpha:0.035+Math.random()*0.05
+    });
+  }
+  return traces;
+}
+// About one trace line every 220px of width, clamped so it's never too sparse (a
+// narrow phone) or too busy (an ultrawide monitor).
+function diagnosticTraceCount(w){ return Math.max(4,Math.min(9,Math.round(w/220))); }
+function redrawDiagnosticBackground(){
+  const canvas=document.getElementById('diagnosticBgCanvas');
+  if(!canvas||!diagnosticTraces) return;
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  const w=window.innerWidth, h=window.innerHeight;
+  canvas.width=Math.floor(w*dpr); canvas.height=Math.floor(h*dpr);
+  const ctx=canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  drawDiagnosticField(ctx,w,h,diagnosticTraces,{bg:'#1B100E'});
+}
+function setupDiagnosticBackground(){
+  if(document.getElementById('diagnosticBgLayer')) return; // already set up for this "session" of the theme
+  const layer=document.createElement('div');
+  layer.id='diagnosticBgLayer';
+  layer.setAttribute('aria-hidden','true');
+  layer.style.cssText='position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;';
+  const canvas=document.createElement('canvas');
+  canvas.id='diagnosticBgCanvas';
+  canvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;';
+  layer.appendChild(canvas);
+  const glow=document.createElement('div');
+  glow.id='diagnosticBgGlow';
+  glow.setAttribute('aria-hidden','true');
+  glow.style.cssText='position:absolute;inset:-20%;background:radial-gradient(circle at 50% 22%,var(--diag-glow),transparent 62%);opacity:.55;animation:fsBreathe 9s ease-in-out infinite;';
+  layer.appendChild(glow);
+  document.body.appendChild(layer);
+  diagnosticTraces=generateDiagnosticTraces(diagnosticTraceCount(window.innerWidth),window.innerWidth);
+  redrawDiagnosticBackground();
+  if(!diagnosticResizeBound){
+    let resizeT=null;
+    window.addEventListener('resize',()=>{
+      clearTimeout(resizeT);
+      resizeT=setTimeout(()=>{
+        if(document.getElementById('diagnosticBgLayer')){
+          diagnosticTraces=generateDiagnosticTraces(diagnosticTraceCount(window.innerWidth),window.innerWidth);
+          redrawDiagnosticBackground();
+        }
+      },150);
+    });
+    diagnosticResizeBound=true;
+  }
+}
+function teardownDiagnosticBackground(){
+  const layer=document.getElementById('diagnosticBgLayer');
+  if(layer) layer.remove();
+  diagnosticTraces=null;
+}
+// The blink curtain: an opaque dot-grid cover that closes to a thin glowing slit at
+// the midpoint of its animation, then lifts away (see .diagnostic-curtain /
+// @keyframes diagnosticCurtainBlink in the CSS) the moment this theme first appears —
+// on opening the ledger file if it's already the saved theme, or right when
+// switching into it from Settings. Skips entirely under reduced-motion, since its
+// un-animated resting state is a full-screen cover — it must never be left on screen
+// without its blink running.
+function playDiagnosticCurtain(){
+  if(prefersReducedMotion()) return;
+  const curtain=document.createElement('div');
+  curtain.className='diagnostic-curtain';
+  curtain.setAttribute('aria-hidden','true');
+  const line=document.createElement('div');
+  line.className='diagnostic-curtain-line';
+  curtain.appendChild(line);
+  document.body.appendChild(curtain);
+  const remove=()=>{ if(curtain.parentNode) curtain.remove(); };
+  curtain.addEventListener('animationend',remove);
+  setTimeout(remove,2000); // safety net in case animationend never fires
+}
+// Called from render() when the active tab just changed while Diagnostic is active —
+// restarts the CSS blink on #main (see .section-in / @keyframes diagnosticMainBlink).
+function triggerDiagnosticSectionTransition(main){
+  if(prefersReducedMotion()) return;
+  main.classList.remove('section-in');
+  void main.offsetWidth; // force reflow so re-adding the class restarts the animation
+  main.classList.add('section-in');
+}
+// Real figures, not placeholders: pulled fresh each call from streak/session/homework
+// state so the baseline-log ticker and the full-screen timer's readline both say
+// something true about this particular ledger, not generic flavor text.
+function diagnosticLogLines(){
+  const streak=computeStreak();
+  const overdue=state.homework.filter(h=>h.status!=='done' && new Date(h.dueDate)<new Date(todayISO())).length;
+  const totalSessions=state.studyLogs.length;
+  const totalHours=(state.studyLogs.reduce((sum,l)=>sum+(l.minutes||0),0)/60).toFixed(1);
+  return [
+    'BASELINE STABILITY LAB // STREAM OPEN',
+    `ANCHOR // ${streak}D STREAK ${streak>0?'HOLDING':'AWAITING FIRST READING'}`,
+    `MEMORY // ${totalSessions} SESSION${totalSessions===1?'':'S'} LOGGED // ${totalHours}H BANKED`,
+    overdue>0?`STRESS // ${overdue} OVERDUE SIGNAL${overdue===1?'':'S'} DETECTED`:'STRESS // NO OVERDUE SIGNALS // FLAT LINE',
+    `SUBJECT INDEX // ${state.subjects.length} TRACKED`,
+    'SYNC-B // REPETITION LOOP HOLDING STEADY',
+    'IMAGE DRIFT // WITHIN NORMAL RANGE'
+  ];
+}
+// A classic terminal "decode" scramble: reveals finalText left-to-right while the
+// not-yet-revealed tail flickers through random glyphs — used for the ticker and the
+// full-screen readline so new text never just snaps in.
+function scrambleInto(el,finalText,duration){
+  duration=duration||650;
+  if(!el) return;
+  if(prefersReducedMotion()){ el.textContent=finalText; return; }
+  const glyphs='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/·—';
+  const len=finalText.length;
+  const start=performance.now();
+  if(el._scrambleRAF) cancelAnimationFrame(el._scrambleRAF);
+  function step(now){
+    const t=Math.min(1,(now-start)/duration);
+    const revealCount=Math.floor(t*len);
+    let out='';
+    for(let i=0;i<len;i++){
+      out += (i<revealCount || finalText[i]===' ') ? finalText[i] : glyphs[Math.floor(Math.random()*glyphs.length)];
+    }
+    el.textContent=out;
+    if(t<1) el._scrambleRAF=requestAnimationFrame(step);
+    else el._scrambleRAF=null;
+  }
+  el._scrambleRAF=requestAnimationFrame(step);
+}
+// The baseline-log ticker: a small fixed overlay (bottom-left, see .diagnostic-ticker
+// in the CSS) that quietly cycles through diagnosticLogLines() every few seconds.
+// Persists across renders once created (checked by id, like the bg layer above) so
+// its interval isn't reset by every unrelated re-render the way a .theme-fx element
+// (rebuilt every render(), see the top of setupThemeEffects()) would be.
+function startDiagnosticTicker(){
+  if(diagnosticTickerTimer) return; // already running for this "session" of the theme
+  let el=document.getElementById('diagnosticTicker');
+  if(!el){
+    el=document.createElement('div');
+    el.id='diagnosticTicker';
+    el.className='diagnostic-ticker';
+    el.setAttribute('aria-hidden','true');
+    document.body.appendChild(el);
+  }
+  let idx=-1;
+  const advance=()=>{
+    const lines=diagnosticLogLines();
+    idx=(idx+1)%lines.length;
+    scrambleInto(el,lines[idx]);
+  };
+  advance();
+  diagnosticTickerTimer=setInterval(advance,5200);
+}
+function stopDiagnosticTicker(){
+  if(diagnosticTickerTimer){ clearInterval(diagnosticTickerTimer); diagnosticTickerTimer=null; }
+  const el=document.getElementById('diagnosticTicker');
+  if(el) el.remove();
+}
+// Diagnostic-only: the full-screen hero eye's pupil drifts a few pixels toward the
+// pointer (or last touch point), for a slow, hypnotic "it's watching you" quality.
+// Bound once, globally, at script init — cheap to no-op, since it bails immediately
+// unless the full-screen timer is open with Diagnostic as the active palette.
+function bindDiagnosticEyeTracking(){
+  const move=(clientX,clientY)=>{
+    if(!timerFullscreen || (state.settings.palette||'ledger')!=='diagnostic') return;
+    const wrap=document.querySelector('.fs-eyewrap');
+    if(!wrap) return;
+    const rect=wrap.getBoundingClientRect();
+    const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
+    const dx=Math.max(-1,Math.min(1,(clientX-cx)/(window.innerWidth/2)));
+    const dy=Math.max(-1,Math.min(1,(clientY-cy)/(window.innerHeight/2)));
+    wrap.style.transform=`translate(calc(-50% + ${(dx*7).toFixed(1)}px), calc(-50% + ${(dy*5).toFixed(1)}px))`;
+  };
+  window.addEventListener('pointermove',(e)=>move(e.clientX,e.clientY));
+  window.addEventListener('touchmove',(e)=>{ if(e.touches[0]) move(e.touches[0].clientX,e.touches[0].clientY); },{passive:true});
+}
+bindDiagnosticEyeTracking();
+
 /* ============================= NAV ============================= */
 const TABS=[
   {id:'today',label:'Today',icon:'<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'},
@@ -2533,6 +2901,7 @@ function render(){
     const activePalette=state.settings.palette||'ledger';
     if(activePalette==='halftone') triggerHalftoneSectionTransition(main);
     else if(activePalette==='glass') triggerGlassSectionTransition(main);
+    else if(activePalette==='diagnostic') triggerDiagnosticSectionTransition(main);
   }
   lastRenderedTab=activeTab;
   updateLiveSessionBadge();
@@ -2968,7 +3337,9 @@ function updateTimerDisplayOnly(){
   document.querySelectorAll('.timerdisplay').forEach(el=>el.textContent=text);
   updateFsProgress();
 }
-/* Keeps the full-screen ring / sunset sun in sync each tick without a full re-render */
+/* Keeps the full-screen ring / sunset sun / diagnostic drift readout in sync each
+   tick without a full re-render (a full re-render would also snap the diagnostic
+   eye's pointer-tracked offset back to center, which we don't want every second). */
 function updateFsProgress(){
   if(!timerFullscreen || timerMode!=='pomodoro') return;
   const total=(timer.mode==='work'?state.settings.pomodoroWork:state.settings.pomodoroBreak)*60;
@@ -2982,6 +3353,16 @@ function updateFsProgress(){
   if(sun){
     const pct = timer.mode==='work' ? (10+frac*55) : (65-frac*55);
     sun.style.top=pct+'%';
+  }
+  if((state.settings.palette||'ledger')==='diagnostic'){
+    const driftBar=document.querySelector('.fs-statbar:nth-child(2)');
+    if(driftBar){
+      const pct=Math.max(2,Math.min(98,Math.round((1-frac)*100)));
+      const fill=driftBar.querySelector('.fill'); if(fill) fill.style.width=pct+'%';
+      const pctEl=driftBar.querySelector('.pct'); if(pctEl) pctEl.textContent=pct+'%';
+    }
+    const readline=document.querySelector('.fs-readline');
+    if(readline) readline.textContent=diagnosticReadlineText(frac);
   }
 }
 function logStudy(subjectId,minutes,source,note){
@@ -3000,6 +3381,59 @@ function closeTimerFullscreen(){
   timerFullscreen=false;
   document.getElementById('fullscreenRoot').innerHTML='';
   document.body.style.overflow='';
+}
+// Diagnostic-only: the fullscreen readline's cryptic subject/anchor/drift summary —
+// mixes the currently-studied subject with real streak and session-progress figures.
+function diagnosticReadlineText(frac){
+  const id = timerMode==='pomodoro' ? (timer.subjectId||state.subjects[0]?.id) : (state.activeSession?state.activeSession.subjectId:(state.subjects[0]?.id));
+  const s=subj(id);
+  const name=s?s.name.toUpperCase():'UNASSIGNED';
+  const streak=computeStreak();
+  const driftPct=Math.round((1-frac)*100);
+  return `SUBJECT: ${name} // ANCHOR ${streak}D // DRIFT ${driftPct}%`;
+}
+// Diagnostic-only: the fullscreen timer's four vitals bars — STRESS, DRIFT, ANCHOR,
+// MEMORY — read out real figures (overdue homework, session progress, streak length,
+// total hours logged) rather than placeholder numbers, each folded into a 0-100 band.
+function diagnosticVitals(frac){
+  const streak=computeStreak();
+  const overdue=state.homework.filter(h=>h.status!=='done' && new Date(h.dueDate)<new Date(todayISO())).length;
+  const totalMinutes=state.studyLogs.reduce((sum,l)=>sum+(l.minutes||0),0);
+  return {
+    stress:Math.max(4,Math.min(96,overdue*22+6)),
+    drift:Math.max(2,Math.min(98,Math.round((1-frac)*100))),
+    anchor:Math.max(4,Math.min(98,streak*9+6)),
+    memory:Math.max(4,Math.min(98,Math.round((totalMinutes/6000)*100)+8))
+  };
+}
+// A short, jittery random-walk polyline for the two small VERT//HORIZ sparkline
+// readouts either side of the pulse strip — regenerated fresh every render, the same
+// way sakura/aurora regenerate their petal/star fields each time fsFxMarkup runs.
+function buildSquigglePoints(w,h,segments){
+  segments=segments||13;
+  let y=h/2, out=[];
+  for(let i=0;i<=segments;i++){
+    const x=(i/segments)*w;
+    y+=(Math.random()-0.5)*(h*0.55);
+    y=Math.max(h*0.12,Math.min(h*0.88,y));
+    out.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+  }
+  return out.join(' ');
+}
+// A longer polyline for the scrolling PULSE strip, with occasional sharp spikes/dips
+// among the gentle jitter for an EKG-like read rather than pure noise.
+function buildPulsePolyline(w,h,segments){
+  segments=segments||26;
+  let y=h/2, out=[];
+  for(let i=0;i<=segments;i++){
+    const x=(i/segments)*w;
+    const roll=Math.random();
+    if(roll<0.12) y=h*0.15+Math.random()*h*0.12;
+    else if(roll<0.22) y=h*0.85-Math.random()*h*0.12;
+    else{ y+=(Math.random()-0.5)*(h*0.32); y=Math.max(h*0.14,Math.min(h*0.86,y)); }
+    out.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+  }
+  return out.join(' ');
 }
 function buildPixelEyeGrid(open){
   const W=15,H=9,cx=7,cy=4;
@@ -3068,20 +3502,33 @@ function fsFxMarkup(palette, frac){
     return `<div class="fs-fx">${motes}<div class="fs-breathe" style="width:280px;height:280px;left:50%;top:50%;margin:-140px 0 0 -140px;"></div></div>`;
   }
   if(palette==='diagnostic'){
-    const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    let cells='';
-    for(let i=0;i<36;i++){
-      const ch=letters[Math.floor(Math.random()*letters.length)];
-      const hit=Math.random()<0.14;
-      cells+=`<span class="fs-gridcell${hit?' hit':''}">${ch}</span>`;
-    }
+    const v=diagnosticVitals(frac);
+    const sq1=buildSquigglePoints(60,22), sq2=buildSquigglePoints(60,22);
+    const pulsePts=buildPulsePolyline(300,26);
     return `<div class="fs-fx">
-      <div class="fs-scan"></div>
+      <div class="fs-readline">${esc(diagnosticReadlineText(frac))}</div>
       <div class="fs-eyewrap">
         <div class="fs-eye-frame open">${buildPixelEyeGrid(true)}</div>
         <div class="fs-eye-frame closed">${buildPixelEyeGrid(false)}</div>
       </div>
-      <div class="fs-lettergrid">${cells}</div>
+      <div class="fs-vitalsdock">
+        <div class="fs-squiggrow">
+          <div class="fs-squigglebox"><span class="fs-squigglabel">Vert //</span><svg viewBox="0 0 60 22" preserveAspectRatio="none" aria-hidden="true"><polyline points="${sq1}"></polyline></svg></div>
+          <div class="fs-squigglebox"><span class="fs-squigglabel">Horiz //</span><svg viewBox="0 0 60 22" preserveAspectRatio="none" aria-hidden="true"><polyline points="${sq2}"></polyline></svg></div>
+        </div>
+        <div class="fs-pulsewrap" aria-hidden="true">
+          <div class="fs-pulsetrack">
+            <svg viewBox="0 0 300 26" preserveAspectRatio="none"><polyline points="${pulsePts}"></polyline></svg>
+            <svg viewBox="0 0 300 26" preserveAspectRatio="none"><polyline points="${pulsePts}"></polyline></svg>
+          </div>
+        </div>
+        <div class="fs-statbars">
+          <div class="fs-statbar"><span>Stress</span><div class="track"><div class="fill" style="width:${v.stress}%"></div></div><span class="pct">${v.stress}%</span></div>
+          <div class="fs-statbar"><span>Drift</span><div class="track"><div class="fill" style="width:${v.drift}%"></div></div><span class="pct">${v.drift}%</span></div>
+          <div class="fs-statbar"><span>Anchor</span><div class="track"><div class="fill" style="width:${v.anchor}%"></div></div><span class="pct">${v.anchor}%</span></div>
+          <div class="fs-statbar"><span>Memory</span><div class="track"><div class="fill" style="width:${v.memory}%"></div></div><span class="pct">${v.memory}%</span></div>
+        </div>
+      </div>
     </div>`;
   }
   if(palette==='halftone'){
@@ -4031,9 +4478,9 @@ function renderSettings(){
         <div class="theme-desc">Crisp &amp; frosted</div>
       </div>
       <div class="theme-opt ${sett.palette==='diagnostic'?'sel':''}" data-action="set-palette" data-palette="diagnostic" role="button" tabindex="0" aria-pressed="${sett.palette==='diagnostic'}">
-        <div class="theme-preview" style="background:#241412;"><span style="background:#8FA88A;"></span><span style="background:#C0574C;"></span></div>
+        <div class="theme-preview" style="background:#1B100E;"><span style="background:#93AC8C;"></span><span style="background:#C6604F;"></span></div>
         Diagnostic
-        <div class="theme-desc">Dithered terminal readout</div>
+        <div class="theme-desc">A dreaming eye, live vitals</div>
       </div>
       <div class="theme-opt ${sett.palette==='halftone'?'sel':''}" data-action="set-palette" data-palette="halftone" role="button" tabindex="0" aria-pressed="${sett.palette==='halftone'}">
         <div class="theme-preview" style="background:#0E1A2B;"><span style="background:#57C6E0;"></span><span style="background:#F4C15E;"></span></div>
