@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Ledger — Study &amp; Schedule</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#B05A1E">
+<meta name="theme-color" content="#3B2A4A">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1344,7 +1344,23 @@ if('serviceWorker' in navigator){
 // ground. Note for anyone who already has this installed to a home screen: most
 // platforms cache a PWA's icon at install time and won't refresh it just because
 // the manifest/icon files changed on a new deploy — remove and re-add it to actually
-// see the new mark.
+// see the new mark. This release, 3.18.1, fixes two things from 3.18.0. First, the
+// full-screen hero eye's blink was a single flat bitmap squashed vertically via
+// scaleY — the whole eye (pupil, iris, and the skin/socket pixels baked into that
+// same image) crushed flat and popped back rather than eyelids closing over it.
+// It's rebuilt as layered shapes instead: a sclera, iris, and pupil as plain CSS
+// circles, covered and uncovered by two lid shapes that slide down/up from the top
+// and bottom (.fs-eyelid-top/-bottom) — the eyeball itself never distorts. Pointer-
+// tracking drift moved from the whole eyewrap (lids included) onto just the iris,
+// so the socket stays put while only the iris drifts toward the pointer. Second,
+// the app icon (all four files) is no longer cropped from that reference photo —
+// replaced with an original mark: a stopwatch-style ring with a crown/button at
+// its gap, wrapped around three short ledger-line ticks, on a deep plum-to-violet
+// ground with a warm amber-gold ring and a soft lamp-glow highlight. The maskable
+// variants keep the glyph within the OS's ~80%-diameter safe zone so it isn't
+// clipped when cropped to a circle or squircle. manifest.json's background/theme
+// colors and the in-page theme-color meta tag were updated to match. Same install-
+// icon caching note as above applies if you don't see the new mark right away.
 const APP_VERSION='3.18.1';
 const APP_CODENAME='Reverie';
 // The ONE intentional difference between the main and beta deployments'
