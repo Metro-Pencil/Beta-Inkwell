@@ -966,16 +966,16 @@ textarea{width:100%;resize:vertical;min-height:64px;}
 @keyframes fsSway{0%,100%{transform:translateY(0) rotate(-8deg);}50%{transform:translateY(-14px) rotate(8deg);}}
 
 /* --- diagnostic: a hazy oxblood bio-scan. Dot-grid fog + a slow breathing glow;
-   a live "baseline" readline; a real close-up eye photo (recolored into this
-   palette from the person's own reference image, pupil placed by hand) whose
-   whole gaze drifts toward the pointer/finger (see the pointermove/touchmove
-   handler bound near DIAGNOSTIC EYE TRACKING in the script) and blinks on an
-   unhurried, uneven rhythm via a vertical squash; a docked strip of twin
-   VERT/HORIZ sparklines, a scrolling PULSE waveform, and four vitals bars —
+   a live "baseline" readline; a built-from-shapes HUD eye — sclera, iris, and
+   pupil as plain CSS circles under two lid shapes that slide closed from the
+   top and bottom (see .fs-eyelid-top/-bottom below) rather than distorting the
+   eyeball itself. The iris drifts a few px toward the pointer/finger (see the
+   pointermove/touchmove handler bound near DIAGNOSTIC EYE TRACKING in the
+   script) and the lids close on an unhurried, uneven rhythm; a docked strip of
+   twin VERT/HORIZ sparklines, a scrolling PULSE waveform, and four vitals bars —
    STRESS, DRIFT, ANCHOR, MEMORY — computed from real overdue-homework, session-
    progress, streak and log-history figures rather than placeholder numbers. See
-   fsFxMarkup()'s 'diagnostic' branch — the sprite itself is a base64 PNG baked
-   into .fs-eye-sprite's background-image just below. --- */
+   fsFxMarkup()'s 'diagnostic' branch just below for the markup. --- */
 .timer-fs.fs-diagnostic{background:var(--paper);}
 .timer-fs.fs-diagnostic::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(236,224,201,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(236,224,201,0.06) 1px,transparent 1px);background-size:13px 13px;z-index:0;}
 .timer-fs.fs-diagnostic::after{content:'';position:absolute;inset:-20%;background:radial-gradient(circle at 50% 32%,var(--diag-glow),transparent 60%);opacity:.5;animation:fsBreathe 7s ease-in-out infinite;z-index:0;}
@@ -987,19 +987,22 @@ textarea{width:100%;resize:vertical;min-height:64px;}
 
 .timer-fs.fs-diagnostic .fs-readline{position:absolute;left:50%;top:8%;transform:translateX(-50%);font-family:var(--font-mono);font-size:10.5px;letter-spacing:.05em;color:var(--ink-soft);opacity:.8;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;z-index:0;}
 
-.timer-fs.fs-diagnostic .fs-eyewrap{position:absolute;left:50%;top:28%;width:min(52vw,260px);height:min(35vw,176px);transform:translate(-50%,-50%);z-index:0;transition:transform .5s cubic-bezier(.2,.8,.2,1);}
-.timer-fs.fs-diagnostic .fs-eye-sprite{
-  position:absolute; inset:0; width:100%; height:100%;
-  background-image:url('data:image/png;base64,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');
-  background-size:100% 100%; background-repeat:no-repeat;
-  image-rendering:pixelated; image-rendering:crisp-edges;
-  transform-origin:50% 50%;
-  animation: fsEyeBlink 6.4s ease-in-out infinite;
-  filter:drop-shadow(0 0 22px rgba(147,172,140,0.28));
+.timer-fs.fs-diagnostic .fs-eyewrap{position:absolute;left:50%;top:28%;width:min(52vw,260px);height:min(35vw,176px);transform:translate(-50%,-50%);z-index:0;}
+.timer-fs.fs-diagnostic .fs-eye{position:absolute;inset:0;border-radius:50%/46%;overflow:hidden;filter:drop-shadow(0 0 22px var(--diag-glow));}
+.timer-fs.fs-diagnostic .fs-eye-sclera{position:absolute;inset:0;background:radial-gradient(circle at 50% 45%,#C9BBA1 0%,#AB9179 70%,#6E5544 100%);display:flex;align-items:center;justify-content:center;}
+.timer-fs.fs-diagnostic .fs-eye-iris{position:relative;width:44%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 36% 32%,#C4D6BE 0%,var(--accent-study) 45%,#3E4B3A 100%);box-shadow:inset 0 0 7px rgba(0,0,0,.55);transition:transform .5s cubic-bezier(.2,.8,.2,1);}
+.timer-fs.fs-diagnostic .fs-eye-pupil{position:absolute;left:50%;top:50%;width:44%;aspect-ratio:1;border-radius:50%;background:#0B0705;transform:translate(-50%,-50%);}
+.timer-fs.fs-diagnostic .fs-eye-catchlight{position:absolute;left:32%;top:26%;width:15%;aspect-ratio:1;border-radius:50%;background:rgba(255,255,255,.65);}
+.timer-fs.fs-diagnostic .fs-eyelid{position:absolute;left:-6%;right:-6%;background:var(--paper);z-index:2;}
+.timer-fs.fs-diagnostic .fs-eyelid-top{top:-10%;height:62%;border-radius:0 0 50% 50%/0 0 100% 100%;transform-origin:top center;animation-name:fsEyeLidTop;animation-timing-function:ease-in-out;animation-iteration-count:infinite;}
+.timer-fs.fs-diagnostic .fs-eyelid-bottom{bottom:-10%;height:62%;border-radius:50% 50% 0 0/100% 100% 0 0;transform-origin:bottom center;animation-name:fsEyeLidBottom;animation-timing-function:ease-in-out;animation-iteration-count:infinite;}
+@keyframes fsEyeLidTop{
+  0%,86%,100%{ transform:translateY(-100%); }
+  90%,92%{ transform:translateY(0); }
 }
-@keyframes fsEyeBlink{
-  0%,86%,100%{ transform:scaleY(1); }
-  90%,92%{ transform:scaleY(0.05); }
+@keyframes fsEyeLidBottom{
+  0%,86%,100%{ transform:translateY(100%); }
+  90%,92%{ transform:translateY(0); }
 }
 
 .timer-fs.fs-diagnostic .fs-vitalsdock{position:absolute;left:50%;bottom:52px;transform:translateX(-50%);width:min(88vw,440px);z-index:0;}
@@ -1021,7 +1024,7 @@ textarea{width:100%;resize:vertical;min-height:64px;}
 .timer-fs.fs-diagnostic .fs-statbar .pct{text-align:right;}
 @media(prefers-reduced-motion:reduce){
   .timer-fs.fs-diagnostic .fs-pulsetrack{animation:none;}
-  .timer-fs.fs-diagnostic .fs-eye-sprite{animation:none;}
+  .timer-fs.fs-diagnostic .fs-eyelid-top,.timer-fs.fs-diagnostic .fs-eyelid-bottom{animation:none;}
 }
 
 /* --- halftone: a big cozy dot-screen cloud drawn to <canvas> by renderFsCloud(), with a
@@ -1342,7 +1345,7 @@ if('serviceWorker' in navigator){
 // platforms cache a PWA's icon at install time and won't refresh it just because
 // the manifest/icon files changed on a new deploy — remove and re-add it to actually
 // see the new mark.
-const APP_VERSION='3.18.0';
+const APP_VERSION='3.18.1';
 const APP_CODENAME='Reverie';
 // The ONE intentional difference between the main and beta deployments'
 // index.html: everything else stays byte-identical. Set to 'beta' in the
@@ -2747,20 +2750,23 @@ function stopDiagnosticTicker(){
   const el=document.getElementById('diagnosticTicker');
   if(el) el.remove();
 }
-// Diagnostic-only: the full-screen hero eye's pupil drifts a few pixels toward the
+// Diagnostic-only: the full-screen hero eye's iris drifts a few pixels toward the
 // pointer (or last touch point), for a slow, hypnotic "it's watching you" quality.
+// Moves just the iris within the static sclera/socket (not the eyelids), so the
+// blink and the gaze drift never fight over the same transform.
 // Bound once, globally, at script init — cheap to no-op, since it bails immediately
 // unless the full-screen timer is open with Diagnostic as the active palette.
 function bindDiagnosticEyeTracking(){
   const move=(clientX,clientY)=>{
     if(!timerFullscreen || (state.settings.palette||'ledger')!=='diagnostic') return;
-    const wrap=document.querySelector('.fs-eyewrap');
-    if(!wrap) return;
-    const rect=wrap.getBoundingClientRect();
+    const socket=document.querySelector('.fs-eye-sclera');
+    const iris=document.querySelector('.fs-eye-iris');
+    if(!socket||!iris) return;
+    const rect=socket.getBoundingClientRect();
     const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
     const dx=Math.max(-1,Math.min(1,(clientX-cx)/(window.innerWidth/2)));
     const dy=Math.max(-1,Math.min(1,(clientY-cy)/(window.innerHeight/2)));
-    wrap.style.transform=`translate(calc(-50% + ${(dx*7).toFixed(1)}px), calc(-50% + ${(dy*5).toFixed(1)}px))`;
+    iris.style.transform=`translate(${(dx*5).toFixed(1)}px, ${(dy*4).toFixed(1)}px)`;
   };
   window.addEventListener('pointermove',(e)=>move(e.clientX,e.clientY));
   window.addEventListener('touchmove',(e)=>{ if(e.touches[0]) move(e.touches[0].clientX,e.touches[0].clientY); },{passive:true});
@@ -3500,7 +3506,11 @@ function fsFxMarkup(palette, frac){
     return `<div class="fs-fx">
       <div class="fs-readline">${esc(diagnosticReadlineText(frac))}</div>
       <div class="fs-eyewrap">
-        <div class="fs-eye-sprite" style="animation-duration:${blinkDur}s"></div>
+        <div class="fs-eye">
+          <div class="fs-eye-sclera"><div class="fs-eye-iris"><div class="fs-eye-pupil"></div><div class="fs-eye-catchlight"></div></div></div>
+          <div class="fs-eyelid fs-eyelid-top" style="animation-duration:${blinkDur}s"></div>
+          <div class="fs-eyelid fs-eyelid-bottom" style="animation-duration:${blinkDur}s"></div>
+        </div>
       </div>
       <div class="fs-vitalsdock">
         <div class="fs-squiggrow">
