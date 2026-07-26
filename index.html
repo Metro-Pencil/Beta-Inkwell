@@ -536,7 +536,7 @@
 [data-palette="halftone"] h1,[data-palette="halftone"] h2,[data-palette="halftone"] h3,[data-palette="halftone"] .display{ font-weight:600; letter-spacing:-0.005em; }
 [data-palette="halftone"] h1::before,[data-palette="halftone"] h2::before,[data-palette="halftone"] h3::before{ content:'· '; color:var(--accent-study); opacity:.75; }
 [data-palette="halftone"] .btn{ background-color:rgba(28,50,82,0.55); backdrop-filter:blur(4px); }
-[data-palette="halftone"] .btn:hover{ background-color:rgba(37,63,100,0.8); }
+@media(hover:hover){ [data-palette="halftone"] .btn:hover{ background-color:rgba(37,63,100,0.8); } }
 [data-palette="halftone"] .btn.primary{ animation:haloBreathe 3.6s ease-in-out infinite; }
 [data-palette="halftone"] .navitem.active{ box-shadow:0 4px 18px rgba(87,198,224,0.4); }
 [data-palette="halftone"] .brand-mark{ box-shadow:0 0 14px rgba(87,198,224,0.5); }
@@ -809,13 +809,21 @@ main{flex:1;min-width:0;padding:24px 34px 60px;}
   padding:8px 14px;border-radius:var(--radius-sm);border:1px solid var(--line);
   background:var(--paper);color:var(--ink);font-size:13.5px;font-weight:600;cursor:pointer;
 }
-.btn:hover{background:var(--paper-3);}
 .btn.primary{background:var(--accent-study);border-color:var(--accent-study);color:var(--on-study);}
-.btn.primary:hover{filter:brightness(1.08);}
 .btn.danger{background:var(--accent-due);border-color:var(--accent-due);color:var(--on-due);}
 .btn.ghost{background:transparent;border-color:transparent;}
 .btn.small{padding:5px 10px;font-size:12px;}
 .btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;}
+/* :hover only for input that can actually hover (a real mouse/trackpad). Without this
+   guard, tapping a button on a touchscreen (phone/tablet, including this installed as
+   an Android PWA) makes Chrome/WebKit apply :hover on tap and then never properly
+   clear it — since there's no pointer to "leave" the button afterward, it can look
+   stuck in its hover color until something else on the page happens to clear it. Every
+   per-theme .btn:hover override below carries the same guard for the same reason. */
+@media(hover:hover){
+  .btn:hover{background:var(--paper-3);}
+  .btn.primary:hover{filter:brightness(1.08);}
+}
 
 .tag{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:100px;}
 .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
@@ -1365,7 +1373,19 @@ if('serviceWorker' in navigator){
 // each time the theme switches on" jitter (Math.random); the full-screen hero
 // keeps its previous "always the same shape" determinism, now via a seeded
 // detRng() rather than a hand-typed fixed array.
-const APP_VERSION='3.20.0';
+// 3.20.1 is a PATCH: fixes a stuck-hover bug on Halftone's buttons. .btn:hover (the
+// base rule, and Halftone's own darker-blue override) had no touch/pointer guard, so
+// on a touchscreen — including this app installed as an Android PWA — tapping a
+// button made Chrome/WebKit apply :hover on tap and then never properly clear it,
+// since there's no real pointer to "leave" the button afterward; it read as the
+// button turning dark blue and staying that way. Every .btn:hover rule (base and
+// Halftone's) is now wrapped in @media(hover:hover), so it only ever applies for
+// input that can genuinely hover (mouse/trackpad) — verified with a real
+// touch-context tap in Playwright (color no longer changes on tap) alongside a
+// normal desktop hover (still darkens on hover, still reverts on mouse-out, exactly
+// as before). No other theme's buttons were reported as affected, so their own
+// :hover overrides (e.g. Glass's) are untouched for now.
+const APP_VERSION='3.20.1';
 const APP_CODENAME='Cumulus';
 // The ONE intentional difference between the main and beta deployments'
 // index.html: everything else stays byte-identical. Set to 'beta' in the
