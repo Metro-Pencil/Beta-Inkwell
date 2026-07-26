@@ -966,23 +966,14 @@ textarea{width:100%;resize:vertical;min-height:64px;}
 @keyframes fsSway{0%,100%{transform:translateY(0) rotate(-8deg);}50%{transform:translateY(-14px) rotate(8deg);}}
 
 /* --- diagnostic: a hazy oxblood bio-scan. Dot-grid fog + a slow breathing glow;
-   a live "baseline" readline; a built-from-pixels HUD eye — a small hand-tuned
-   bitmap (sclera, a striated iris, pupil, lashes, even a lacrimal caruncle),
-   rasterized to crisp, non-antialiased SVG rects rather than the smooth CSS
-   circles every other theme would reach for, so it reads as a chunky bio-scan
-   readout rather than a soft illustration. Two jagged eyelid "curtains" (built
-   from that exact same eye-shape curve, so their edge lines up with the
-   eyeball beneath) slide closed from the top and bottom in stepped, pixel-
-   snapped jumps (see .fs-eyelid-top/-bottom below) rather than distorting the
-   eyeball itself. The iris+pupil drift a couple of whole grid-units toward the
-   pointer/finger (see the pointermove/touchmove handler bound near DIAGNOSTIC
-   EYE TRACKING in the script) and the lids close on an unhurried, uneven
-   rhythm; a docked strip of twin VERT/HORIZ sparklines, a scrolling PULSE
-   waveform, and four vitals bars — STRESS, DRIFT, ANCHOR, MEMORY — computed
-   from real overdue-homework, session-progress, streak and log-history
-   figures rather than placeholder numbers. See fsFxMarkup()'s 'diagnostic'
-   branch just below for the markup, and diagnosticEyeMarkup() (defined just
-   above fsFxMarkup) for how the eye bitmap itself gets built. --- */
+   a live "baseline" readline; a docked strip of twin VERT/HORIZ sparklines, a
+   scrolling PULSE waveform, and four vitals bars — STRESS, DRIFT, ANCHOR, MEMORY —
+   computed from real overdue-homework, session-progress, streak and log-history
+   figures rather than placeholder numbers. See fsFxMarkup()'s 'diagnostic' branch
+   just below for the markup. (The full-screen hero used to also carry a built-
+   from-pixels HUD eye with a pointer-tracking iris and blinking eyelid curtains;
+   it's been removed as of this release — see the version-history comment near
+   APP_VERSION.) --- */
 .timer-fs.fs-diagnostic{background:var(--paper);}
 .timer-fs.fs-diagnostic::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(236,224,201,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(236,224,201,0.06) 1px,transparent 1px);background-size:13px 13px;z-index:0;}
 .timer-fs.fs-diagnostic::after{content:'';position:absolute;inset:-20%;background:radial-gradient(circle at 50% 32%,var(--diag-glow),transparent 60%);opacity:.5;animation:fsBreathe 7s ease-in-out infinite;z-index:0;}
@@ -993,21 +984,6 @@ textarea{width:100%;resize:vertical;min-height:64px;}
 .timer-fs.fs-diagnostic .fs-ring-fg{stroke-linecap:butt;}
 
 .timer-fs.fs-diagnostic .fs-readline{position:absolute;left:50%;top:8%;transform:translateX(-50%);font-family:var(--font-mono);font-size:10.5px;letter-spacing:.05em;color:var(--ink-soft);opacity:.8;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;z-index:0;}
-
-.timer-fs.fs-diagnostic .fs-eyewrap{position:absolute;left:50%;top:28%;width:min(64vw,300px);aspect-ratio:30/14;transform:translate(-50%,-50%);z-index:0;}
-.timer-fs.fs-diagnostic .fs-eye{position:absolute;inset:0;width:100%;height:100%;filter:drop-shadow(0 0 22px var(--diag-glow));}
-.timer-fs.fs-diagnostic .fs-eyelid{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;}
-.timer-fs.fs-diagnostic .fs-eyelid svg{display:block;width:100%;height:100%;}
-.timer-fs.fs-diagnostic .fs-eyelid-top{animation-name:fsEyeLidTop;animation-timing-function:steps(4,jump-end);animation-iteration-count:infinite;}
-.timer-fs.fs-diagnostic .fs-eyelid-bottom{animation-name:fsEyeLidBottom;animation-timing-function:steps(4,jump-end);animation-iteration-count:infinite;}
-@keyframes fsEyeLidTop{
-  0%,86%,100%{ transform:translateY(-100%); }
-  90%,92%{ transform:translateY(0); }
-}
-@keyframes fsEyeLidBottom{
-  0%,86%,100%{ transform:translateY(100%); }
-  90%,92%{ transform:translateY(0); }
-}
 
 .timer-fs.fs-diagnostic .fs-vitalsdock{position:absolute;left:50%;bottom:52px;transform:translateX(-50%);width:min(88vw,440px);z-index:0;}
 .timer-fs.fs-diagnostic .fs-squiggrow{display:flex;gap:10px;margin-bottom:8px;}
@@ -1028,12 +1004,16 @@ textarea{width:100%;resize:vertical;min-height:64px;}
 .timer-fs.fs-diagnostic .fs-statbar .pct{text-align:right;}
 @media(prefers-reduced-motion:reduce){
   .timer-fs.fs-diagnostic .fs-pulsetrack{animation:none;}
-  .timer-fs.fs-diagnostic .fs-eyelid-top,.timer-fs.fs-diagnostic .fs-eyelid-bottom{animation:none;}
 }
 
-/* --- halftone: a big cozy dot-screen cloud drawn to <canvas> by renderFsCloud(), with a
-   slow drift/breathe on the canvas itself (cheap — it's a transform, not a redraw) plus a
-   scatter of tiny twinkling dots in the dark upper sky. --- */
+/* --- halftone: a fine-grained dot-screen cumulus cloud drawn to <canvas> by
+   renderFsCloud(), with a slow drift/breathe on the canvas itself (cheap — it's a
+   transform, not a redraw) plus a scatter of tiny twinkling dots in the dark upper
+   sky. The cloud's shape comes from cumulusCluster() — a real, many-lobed cumulus
+   silhouette (flat shaded base, several piled rounded lobes, a crinkly cauliflower-
+   textured edge) modeled on actual single-cumulus reference photography, rendered
+   as dozens of small overlapping dot-clusters rather than the handful of big smooth
+   blobs earlier versions used. --- */
 .timer-fs.fs-halftone{background:#0E1A2B;}
 .timer-fs.fs-halftone .fs-cloud-canvas{
   position:absolute; inset:-4%; width:108%; height:108%;
@@ -1361,9 +1341,32 @@ if('serviceWorker' in navigator){
 // in whole pixel-grid steps (via the SVG transform attribute, so the motion always
 // lands on a crisp grid line at any scale) instead of sliding smoothly, and the two
 // eyelids are jagged pixel "curtains" built from that same eye-shape curve, sliding
-// shut in chunky stepped jumps rather than easing closed.
-const APP_VERSION='3.19.0';
-const APP_CODENAME='Reverie';
+// shut in chunky stepped jumps rather than easing closed. This release bumps MINOR
+// again to 3.20.0 for two changes. First, Diagnostic's full-screen hero eye — the
+// pointer-tracking iris and blinking pixel-curtain eyelids built by
+// diagnosticEyeMarkup(), three overhauls running across 3.10.0-3.19.0 — has been
+// removed outright; the hero now just shows the readline, sparklines, pulse
+// waveform and vitals bars with nothing in between. Second, Halftone's cloud —
+// both the page-wide sky's and the full-screen timer's hero art — has been rebuilt
+// from the ground up: the old generateHaloBlobs()/fixed hero array drew only 5-8
+// large, smooth overlapping ellipses, which read as a handful of oversized blobs
+// rather than an actual cloud. cumulusCluster() replaces that with a real,
+// many-lobed cumulus silhouette modeled on single-cumulus reference photography —
+// a wide flat, shaded underside; a handful of piled major lobes tapering toward
+// the edges; smaller secondary lobes stacked on top of those; small "cauliflower"
+// nub blobs scattered along every lobe's own upper edge (cauliflowerNubs()) for
+// the crinkly, bumpy texture real cumulus clouds have; and a couple of small
+// satellite puffs drifting just clear of the main mass — rendered as dozens of
+// small blobs feeding the same dot-field halftone technique rather than a few
+// giant ones. The dot grid itself is finer too (background cell 12px -> 7px, hero
+// cell 9px -> 6px) with cloud/warm dot opacity toned down a touch, so the sky
+// reads as a field of small dots forming a cloud rather than a glary wash of
+// oversized ones. The page background keeps its previous "a little different
+// each time the theme switches on" jitter (Math.random); the full-screen hero
+// keeps its previous "always the same shape" determinism, now via a seeded
+// detRng() rather than a hand-typed fixed array.
+const APP_VERSION='3.20.0';
+const APP_CODENAME='Cumulus';
 // The ONE intentional difference between the main and beta deployments'
 // index.html: everything else stays byte-identical. Set to 'beta' in the
 // beta copy only, so the version display below reads e.g. "Beta 3.10.0"
@@ -1517,6 +1520,7 @@ let lastAppliedPalette=null; // lets us detect "just switched into halftone/glas
 let lastRenderedTab=null;    // lets render() know a tab switch (not just a data refresh) happened
 let haloBlobs=null;          // this session's cloud-cluster layout, reused across resizes/re-renders
 let halftoneResizeBound=false;
+let haloFsResizeBound=false; // separate debounce binding for the full-screen hero cloud canvas
 let glassRibbons=null;       // this session's ribbon-field layout, reused across resizes/re-renders
 let glassResizeBound=false;
 let glassFsResizeBound=false; // separate debounce binding for the full-screen hero flower canvas
@@ -2190,9 +2194,10 @@ function haloHash(x,y){
   const n=Math.sin(x*127.1+y*311.7)*43758.5453;
   return n-Math.floor(n);
 }
-// Max-blend distance field over a handful of soft elliptical "cloud" blobs (all
+// Max-blend distance field over a set of soft elliptical "cloud" blobs (all
 // coordinates 0..1, normalized to the canvas). Used both for the page-wide sky and
-// for the full-screen timer's hero cloud, just with different blob layouts.
+// for the full-screen timer's hero cloud, just with different (much larger) blob
+// clusters — see cumulusCluster() below.
 function haloField(nx,ny,blobs){
   let v=0;
   for(let i=0;i<blobs.length;i++){
@@ -2203,24 +2208,94 @@ function haloField(nx,ny,blobs){
   }
   return v;
 }
-// A loose, lower-weighted cluster of cloud blobs — mirrors the reference photo's
-// composition (a dark sky giving way to a fluffy mass of cloud lower in frame),
-// randomized a little each time so the sky looks slightly different every time
-// this theme is switched on.
-function generateHaloBlobs(){
-  const blobs=[];
-  const clusterX=0.3+Math.random()*0.4;
-  const n=5+Math.floor(Math.random()*3);
-  for(let i=0;i<n;i++){
-    blobs.push({
-      x:clusterX+(Math.random()-0.5)*0.55,
-      y:0.58+(Math.random()-0.5)*0.42,
-      r:0.15+Math.random()*0.17,
-      sx:0.75+Math.random()*0.55,
-      sy:1.05+Math.random()*0.55
-    });
+// A deterministic pseudo-random generator (successive values in [0,1), reusing
+// haloHash under the hood) — lets the full-screen hero cloud jitter its lobes for
+// an organic, hand-drawn feel while still blooming the exact same shape on every
+// render, the same way Glass's buildGlassFlowerPetals() stays deterministic. The
+// page-wide background instead passes plain Math.random so the sky looks slightly
+// different each time the theme is (re)activated.
+function detRng(seed){
+  let n=seed;
+  return ()=>haloHash(n+=1, seed*1.618+n*0.71);
+}
+// One elliptical blob with an intuitive (x,y,horizontal-radius,vertical-radius)
+// signature — converts to the {x,y,r,sx,sy} shape haloField() expects (r is fixed
+// at 1; sx/sy carry the actual radii, since haloField measures distance in a space
+// pre-scaled by sx/sy).
+function cloudBlob(x,y,rx,ry){ return {x,y,r:1,sx:1/rx,sy:1/ry}; }
+// Scatters a few small "nub" blobs along a parent lobe's own upper boundary (the
+// left-through-top-through-right arc, never the shaded underside) so the fine,
+// crinkly cauliflower texture always sits flush against the mass beneath it rather
+// than floating free. This fractal-ish layering — big lobes, smaller lobes piled on
+// top, tiny nubs along the edges of those — is what makes a halftone dot-cluster
+// read as an actual cumulus cloud instead of a smooth blob.
+function cauliflowerNubs(parent,count,scaleMin,scaleMax,rng){
+  const rx=parent.r/parent.sx, ry=parent.r/parent.sy;
+  const nubs=[];
+  for(let i=0;i<count;i++){
+    const t=(i+0.5)/count;
+    const ang=Math.PI*(1+t)+(rng()-0.5)*0.45; // sweeps upper-left -> top -> upper-right
+    const ex=parent.x+Math.cos(ang)*rx, ey=parent.y+Math.sin(ang)*ry;
+    const nr=(rx+ry)*0.5*(scaleMin+rng()*(scaleMax-scaleMin));
+    nubs.push(cloudBlob(ex+Math.cos(ang)*nr*0.5, ey+Math.sin(ang)*nr*0.5, nr, nr*(0.8+rng()*0.35)));
   }
+  return nubs;
+}
+// Builds a realistic multi-lobed cumulus "cauliflower" cloud as a cluster of dozens
+// of small blobs, anchored at (cx,cy) with half-width/half-height (rw,rh), all in
+// canvas-normalized 0..1 space. The composition — a wide flat, shaded underside;
+// shoulders bridging up into a handful of piled, rounded major lobes (tallest near
+// centre, tapering toward the edges); smaller secondary lobes stacked on top of
+// those; fine cauliflower nubs scattered along every lobe's own upper edge; and a
+// couple of small satellite puffs drifting just clear of the main mass — is modeled
+// on real single-cumulus reference photography (a wide flat base under a piled,
+// rounded, bumpy-edged "heap", per the type's textbook cauliflower silhouette)
+// rather than a handful of freehand overlapping ellipses. `rng` supplies all the
+// jitter: pass Math.random for the page background (see generateHaloBlobs(), a
+// little different each time the theme switches on) or a seeded detRng() for the
+// full-screen hero so it always blooms the same shape (see renderFsCloud()).
+function cumulusCluster(cx,cy,rw,rh,rng){
+  const j=(spread)=>(rng()-0.5)*spread;
+  const blobs=[];
+  blobs.push(cloudBlob(cx+j(rw*0.05), cy+rh*0.58+j(rh*0.04), rw*0.60, rh*0.20));
+  blobs.push(cloudBlob(cx-rw*0.44+j(rw*0.04), cy+rh*0.34+j(rh*0.05), rw*0.32, rh*0.26));
+  blobs.push(cloudBlob(cx+rw*0.46+j(rw*0.04), cy+rh*0.32+j(rh*0.05), rw*0.34, rh*0.27));
+  // bridges the base up into the main heap so the "waist" never pinches into a gap
+  blobs.push(cloudBlob(cx+j(rw*0.04), cy+rh*0.20+j(rh*0.04), rw*0.34, rh*0.24));
+  const majorDefs=[
+    {dx:-0.33,dy:0.02, rx:0.30,ry:0.34},
+    {dx:0.03, dy:-0.12,rx:0.34,ry:0.40},
+    {dx:0.35, dy:0.00, rx:0.31,ry:0.33},
+    {dx:-0.60,dy:0.17, rx:0.20,ry:0.22},
+    {dx:0.62, dy:0.15, rx:0.21,ry:0.23}
+  ];
+  const majors=majorDefs.map(m=>cloudBlob(cx+m.dx*rw+j(rw*0.03), cy+m.dy*rh+j(rh*0.03), rw*m.rx, rh*m.ry));
+  blobs.push(...majors);
+  const secondDefs=[
+    {dx:-0.15,dy:-0.31,rx:0.19,ry:0.19},
+    {dx:0.18, dy:-0.35,rx:0.20,ry:0.20},
+    {dx:0.01, dy:-0.43,rx:0.14,ry:0.14},
+    {dx:-0.43,dy:-0.11,rx:0.14,ry:0.14},
+    {dx:0.45, dy:-0.09,rx:0.145,ry:0.145}
+  ];
+  const seconds=secondDefs.map(s=>cloudBlob(cx+s.dx*rw+j(rw*0.04), cy+s.dy*rh+j(rh*0.04), rw*s.rx, rh*s.ry));
+  blobs.push(...seconds);
+  [...majors,...seconds].forEach(p=>{ blobs.push(...cauliflowerNubs(p,3,0.30,0.48,rng)); });
+  blobs.push(cloudBlob(cx-rw*0.90+j(rw*0.05), cy+rh*0.28+j(rh*0.06), rw*0.10, rh*0.075));
+  blobs.push(cloudBlob(cx+rw*0.93+j(rw*0.06), cy+rh*0.32+j(rh*0.06), rw*0.09, rh*0.07));
   return blobs;
+}
+// The page-wide sky's cloud cluster — anchor position and overall size jitter a
+// little each time this theme is (re)activated (Math.random, not seeded), so the
+// sky looks slightly different from session to session without ever losing the
+// cumulus shape itself. Mirrors the reference photo's composition: a dark sky
+// giving way to a fluffy mass of cloud lower in frame.
+function generateHaloBlobs(){
+  const cx=0.30+Math.random()*0.40;
+  const cy=0.66+Math.random()*0.10;
+  const rw=0.27+Math.random()*0.07;
+  const rh=0.20+Math.random()*0.05;
+  return cumulusCluster(cx,cy,rw,rh,Math.random);
 }
 // Paints a halftone dot field into ctx: a soft vertical sky gradient, small scattered
 // dots in the dark "sky" gaps, larger dots (size scales with cloud density) for the
@@ -2268,8 +2343,8 @@ function redrawHalftoneBackground(){
   const ctx=canvas.getContext('2d');
   ctx.setTransform(dpr,0,0,dpr,0,0);
   drawHalftoneField(ctx,w,h,haloBlobs,{
-    cell:12, skyTop:'#0A1524', skyBottom:'#182B45',
-    skyDot:'rgba(87,198,224,0.5)', cloudDot:'rgba(234,243,252,0.85)', warmDot:'rgba(244,193,94,0.5)'
+    cell:7, skyTop:'#0A1524', skyBottom:'#182B45',
+    skyDot:'rgba(87,198,224,0.5)', cloudDot:'rgba(234,243,252,0.78)', warmDot:'rgba(244,193,94,0.45)'
   });
 }
 function setupHalftoneBackground(){
@@ -2563,9 +2638,9 @@ function renderFsGlassFlower(){
    quietly cycles cryptic readouts mixed with real streak/session/homework figures
    (diagnosticLogLines()); a blink entrance the first time this theme appears and a
    matching quick blink on every tab switch while it's active; and the full-screen
-   timer's hero art further down (fsFxMarkup()'s 'diagnostic' branch) — a dithered eye
-   whose pupil drifts toward the pointer, twin sparklines, a scrolling pulse waveform
-   and four vitals bars. Nothing here runs, or has any effect, for any other theme. */
+   timer's hero art further down (fsFxMarkup()'s 'diagnostic' branch) — twin
+   sparklines, a scrolling pulse waveform, and four vitals bars. Nothing here runs, or
+   has any effect, for any other theme. */
 const DIAGNOSTIC_HUES=[
   {r:147,g:172,b:140}, // sage — accent-study
   {r:198,g:96,b:79},   // rust — accent-due
@@ -2767,34 +2842,6 @@ function stopDiagnosticTicker(){
   const el=document.getElementById('diagnosticTicker');
   if(el) el.remove();
 }
-// Diagnostic-only: the full-screen hero eye's iris+pupil drift a couple of whole
-// grid-units toward the pointer (or last touch point), for a slow, hypnotic "it's
-// watching you" quality. Moves just the #fsEyeIrisGrp group within the static
-// sclera bitmap (not the eyelids), so the blink and the gaze drift never fight over
-// the same transform. The nudge is set via the SVG transform *attribute* (in the
-// eye's own 60x28 grid units, not CSS px) so it always lands on a crisp pixel
-// boundary no matter how the eye is scaled on screen — see diagnosticEyeMarkup()
-// just above fsFxMarkup() for how that grid is built.
-// Bound once, globally, at script init — cheap to no-op, since it bails immediately
-// unless the full-screen timer is open with Diagnostic as the active palette.
-function bindDiagnosticEyeTracking(){
-  const move=(clientX,clientY)=>{
-    if(!timerFullscreen || (state.settings.palette||'ledger')!=='diagnostic') return;
-    const socket=document.querySelector('.fs-eye');
-    const iris=document.getElementById('fsEyeIrisGrp');
-    if(!socket||!iris) return;
-    const rect=socket.getBoundingClientRect();
-    const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
-    const dx=Math.max(-1,Math.min(1,(clientX-cx)/(window.innerWidth/2)));
-    const dy=Math.max(-1,Math.min(1,(clientY-cy)/(window.innerHeight/2)));
-    const gx=Math.round(dx*2), gy=Math.round(dy*1.4);
-    iris.setAttribute('transform',`translate(${gx},${gy})`);
-  };
-  window.addEventListener('pointermove',(e)=>move(e.clientX,e.clientY));
-  window.addEventListener('touchmove',(e)=>{ if(e.touches[0]) move(e.touches[0].clientX,e.touches[0].clientY); },{passive:true});
-}
-bindDiagnosticEyeTracking();
-
 /* ============================= NAV ============================= */
 const TABS=[
   {id:'today',label:'Today',icon:'<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'},
@@ -3479,222 +3526,6 @@ function buildPulsePolyline(w,h,segments){
   }
   return out.join(' ');
 }
-// --- Diagnostic-only pixel-art eye: a small hand-tuned bitmap (sclera, striated
-// iris, pupil, lashes, a lacrimal caruncle) rasterized to crisp SVG <rect>s on a
-// DIAG_EYE_W x DIAG_EYE_H grid, in this theme's own oxblood/sage/bone palette,
-// rather than the smooth CSS-circle eye every other theme would use — it's meant
-// to look like a chunky bio-scan readout, not a soft illustration. The iris+pupil+
-// catchlights live in their own <g id="fsEyeIrisGrp"> so bindDiagnosticEyeTracking()
-// can nudge them a couple of whole grid-units toward the pointer/finger (via the SVG
-// transform attribute, so the nudge always lands on a crisp pixel boundary no matter
-// how the eye is scaled) without touching the sclera underneath. A clipPath shaped to
-// the same eye silhouette keeps that nudge from ever poking iris pixels out past the
-// eyelid corners. The two eyelid curtains reuse the exact same boundary curve for
-// their jagged edge, so they line up with the eyeball beneath them; only their CSS
-// translateY keyframes (see .fs-eyelid-top/-bottom below) do the animating, exactly
-// as before, just stepped now instead of eased for a chunkier, blinkier motion. All
-// of this is static (nothing here depends on frac/gaze), so it's built once, up
-// front, rather than re-walking the grid on every fsFxMarkup() call.
-const DIAG_EYE_W=60, DIAG_EYE_H=28, DIAG_EYE_CX=DIAG_EYE_W/2, DIAG_EYE_CY=DIAG_EYE_H/2;
-const DIAG_EYE_REST_LID=0.11;
-const DIAG_EYE_PAL={
-  scleraLight:'#E2D3B2', scleraMid:'#C9BBA1', scleraShadow:'#93795C', scleraDeep:'#6E5544',
-  vessel:'#8F453A', caruncle:'#8A5144',
-  irisLight:'#C4D6BE', irisMid:'var(--accent-study)', irisMid2:'#637D5D', irisDark:'#3E4B3A', irisRim:'#21281F',
-  pupil:'#0B0705', catchMain:'#F3EBD9', catchSoft:'#C9C3AE',
-  lid:'var(--paper)', lash:'#0D0705'
-};
-function diagEyeTopBottom(u){
-  const au=Math.abs(u), ushift=u-0.10;
-  const topshape=Math.max(0,1-Math.min(1,Math.abs(ushift))**2);
-  const ptop=u<-0.05?2.1:1.5;
-  const lift=u<0?0.10*Math.pow(Math.max(0,-u),1.4):0;
-  const topV=-0.60*Math.pow(topshape,ptop)-lift;
-  const botshape=Math.max(0,1-Math.pow(au,2.1));
-  const pbot=u<0?1.7:1.25;
-  const botV=0.40*Math.pow(botshape,pbot);
-  return [topV,botV];
-}
-function diagEyeCaruncle(u,v){
-  const du=u-0.955, dv=v-0.02;
-  return (du*du*1.6+dv*dv*4.2)<0.028;
-}
-const DIAG_EYE_VESSELS=[[-0.50,0.15,0.09],[-0.38,0.24,0.07],[0.55,-0.28,0.08]];
-const DIAG_EYE_UPPER_LASHES=[[-0.30,-3,-3],[-0.55,-3,-3],[-0.75,-3,-2],[-0.90,-2,-1]];
-const DIAG_EYE_LOWER_LASHES=[[-0.35,2,2],[-0.60,2,1]];
-function diagEyeColU(col){ return (col+0.5-DIAG_EYE_CX)/(DIAG_EYE_W/2); }
-function diagEyeRowV(row){ return (row+0.5-DIAG_EYE_CY)/(DIAG_EYE_H/2); }
-function diagEyeBresenham(x0,y0,x1,y1){
-  const pts=[]; const dx=Math.abs(x1-x0), dy=Math.abs(y1-y0);
-  const sx=x1>=x0?1:-1, sy=y1>=y0?1:-1; let x=x0,y=y0,err=0;
-  if(dx>=dy){ for(let i=0;i<=dx;i++){ pts.push([x,y]); err+=dy; if(err*2>=dx){y+=sy;err-=dx;} x+=sx; } }
-  else{ for(let i=0;i<=dy;i++){ pts.push([x,y]); err+=dx; if(err*2>=dy){x+=sx;err-=dy;} y+=sy; } }
-  return pts;
-}
-function buildDiagEyeScleraGrid(){
-  const grid=Array.from({length:DIAG_EYE_H},()=>new Array(DIAG_EYE_W).fill(null));
-  for(let row=0;row<DIAG_EYE_H;row++){
-    const v=diagEyeRowV(row);
-    for(let col=0;col<DIAG_EYE_W;col++){
-      const u=diagEyeColU(col);
-      const [topV,botV]=diagEyeTopBottom(u);
-      const car=diagEyeCaruncle(u,v);
-      const inside=(v>=topV&&v<=botV)||car;
-      if(!inside) continue;
-      if(car&&!(v>=topV&&v<=botV)){ grid[row][col]=DIAG_EYE_PAL.caruncle; continue; }
-      const midV=(topV+botV)/2;
-      const topClose=topV+(midV-topV)*DIAG_EYE_REST_LID;
-      const botClose=botV-(botV-midV)*Math.min(1,DIAG_EYE_REST_LID*1.15);
-      if(v<topClose||v>botClose){ grid[row][col]=DIAG_EYE_PAL.lid; continue; }
-      const span=Math.max(1e-3,botV-topV);
-      const edgeDist=Math.min(v-topV,botV-v)/span;
-      let c;
-      if(edgeDist<0.05) c=DIAG_EYE_PAL.lash;
-      else if(edgeDist<0.15) c=DIAG_EYE_PAL.scleraDeep;
-      else if(edgeDist<0.32) c=edgeDist<0.22?DIAG_EYE_PAL.scleraShadow:DIAG_EYE_PAL.scleraMid;
-      else c=v>0?DIAG_EYE_PAL.scleraLight:DIAG_EYE_PAL.scleraMid;
-      for(const [vu,vv,vr] of DIAG_EYE_VESSELS){
-        if(Math.hypot(u-vu,v-vv)<vr && (c===DIAG_EYE_PAL.scleraMid||c===DIAG_EYE_PAL.scleraLight)){ c=DIAG_EYE_PAL.vessel; break; }
-      }
-      grid[row][col]=c;
-    }
-  }
-  return grid;
-}
-function buildDiagEyeIrisGrid(){
-  const grid=Array.from({length:DIAG_EYE_H},()=>new Array(DIAG_EYE_W).fill(null));
-  const irisR=0.40, pupilR=irisR*0.44, icx=0.0, icy=-0.06;
-  for(let row=0;row<DIAG_EYE_H;row++){
-    const v=diagEyeRowV(row);
-    for(let col=0;col<DIAG_EYE_W;col++){
-      const u=diagEyeColU(col);
-      const [topV,botV]=diagEyeTopBottom(u);
-      if(!(v>=topV&&v<=botV)) continue;
-      const midV=(topV+botV)/2;
-      const topClose=topV+(midV-topV)*DIAG_EYE_REST_LID;
-      const botClose=botV-(botV-midV)*Math.min(1,DIAG_EYE_REST_LID*1.15);
-      if(v<topClose||v>botClose) continue;
-      const du=u-icx, dv=v-icy, dist=Math.hypot(du,dv);
-      if(dist>irisR) continue;
-      let c;
-      if(dist<=pupilR) c=DIAG_EYE_PAL.pupil;
-      else{
-        const t=(dist-pupilR)/(irisR-pupilR);
-        const ang=Math.atan2(dv,du);
-        const streak=0.5+0.5*Math.sin(ang*9+t*3.0);
-        const streak2=0.5+0.5*Math.sin(ang*23-t*5.0);
-        const shade=0.65*streak+0.35*streak2;
-        if(t>0.86) c=DIAG_EYE_PAL.irisRim;
-        else if(shade>0.62) c=t<0.45?DIAG_EYE_PAL.irisLight:DIAG_EYE_PAL.irisMid;
-        else if(shade>0.38) c=t<0.55?DIAG_EYE_PAL.irisMid:DIAG_EYE_PAL.irisMid2;
-        else c=t<0.7?DIAG_EYE_PAL.irisMid2:DIAG_EYE_PAL.irisDark;
-      }
-      grid[row][col]=c;
-    }
-  }
-  const hl1=[icx-0.16,icy-0.20], hl2=[icx+0.20,icy+0.10];
-  for(let row=0;row<DIAG_EYE_H;row++){
-    const v=diagEyeRowV(row);
-    for(let col=0;col<DIAG_EYE_W;col++){
-      if(grid[row][col]===null) continue;
-      const u=diagEyeColU(col);
-      if(Math.hypot(u-hl1[0],v-hl1[1])<0.085) grid[row][col]=DIAG_EYE_PAL.catchMain;
-      else if(Math.hypot(u-hl2[0],v-hl2[1])<0.05) grid[row][col]=DIAG_EYE_PAL.catchSoft;
-    }
-  }
-  return grid;
-}
-function buildDiagEyeLashPoints(){
-  const pts=[];
-  for(const [u0,dx,dy] of DIAG_EYE_UPPER_LASHES){
-    const [topV]=diagEyeTopBottom(u0);
-    const c0=Math.round(u0*(DIAG_EYE_W/2)+DIAG_EYE_CX-0.5), r0=Math.round(topV*(DIAG_EYE_H/2)+DIAG_EYE_CY-0.5);
-    pts.push(...diagEyeBresenham(c0,r0,c0+dx,r0+dy));
-  }
-  for(const [u0,dx,dy] of DIAG_EYE_LOWER_LASHES){
-    const [,botV]=diagEyeTopBottom(u0);
-    const c0=Math.round(u0*(DIAG_EYE_W/2)+DIAG_EYE_CX-0.5), r0=Math.round(botV*(DIAG_EYE_H/2)+DIAG_EYE_CY-0.5);
-    pts.push(...diagEyeBresenham(c0,r0,c0+dx,r0+dy));
-  }
-  return pts;
-}
-function rleDiagEyeRects(grid,attrs){
-  let out='';
-  for(let row=0;row<grid.length;row++){
-    const line=grid[row]; let x=0;
-    while(x<line.length){
-      const c=line[x];
-      if(c===null){ x++; continue; }
-      let len=1;
-      while(x+len<line.length && line[x+len]===c) len++;
-      out+=`<rect x="${x}" y="${row}" width="${len}" height="1" fill="${c}"${attrs||''}/>`;
-      x+=len;
-    }
-  }
-  return out;
-}
-function buildDiagEyeClipRects(){
-  let out='', x=0;
-  while(x<DIAG_EYE_W){
-    const [topV,botV]=diagEyeTopBottom(diagEyeColU(x));
-    const y0=Math.floor(topV*(DIAG_EYE_H/2)+DIAG_EYE_CY), y1=Math.ceil(botV*(DIAG_EYE_H/2)+DIAG_EYE_CY);
-    let len=1;
-    while(x+len<DIAG_EYE_W){
-      const [t2,b2]=diagEyeTopBottom(diagEyeColU(x+len));
-      const y02=Math.floor(t2*(DIAG_EYE_H/2)+DIAG_EYE_CY), y12=Math.ceil(b2*(DIAG_EYE_H/2)+DIAG_EYE_CY);
-      if(y02!==y0||y12!==y1) break;
-      len++;
-    }
-    if(y1>y0) out+=`<rect x="${x}" y="${y0}" width="${len}" height="${y1-y0}"/>`;
-    x+=len;
-  }
-  out+=`<rect x="${DIAG_EYE_W-3}" y="${Math.round(DIAG_EYE_CY)-2}" width="4" height="4"/>`;
-  return out;
-}
-function buildDiagEyeCurtainRects(which){
-  const seamAt=(x)=>{ const [t,b]=diagEyeTopBottom(diagEyeColU(x)); const m=(t+b)/2*(DIAG_EYE_H/2)+DIAG_EYE_CY; return which==='top'?Math.ceil(m):Math.floor(m); };
-  let out='', x=0;
-  while(x<DIAG_EYE_W){
-    const seam=seamAt(x); let len=1;
-    while(x+len<DIAG_EYE_W && seamAt(x+len)===seam) len++;
-    if(which==='top') out+=`<rect x="${x}" y="0" width="${len}" height="${seam}"/>`;
-    else out+=`<rect x="${x}" y="${seam}" width="${len}" height="${DIAG_EYE_H-seam}"/>`;
-    x+=len;
-  }
-  return out;
-}
-// Computed once at load: everything about this eye that never changes render to render.
-const DIAG_EYE_STATIC=(()=>{
-  const scleraRects=rleDiagEyeRects(buildDiagEyeScleraGrid());
-  const irisRects=rleDiagEyeRects(buildDiagEyeIrisGrid());
-  let lashRects=''; for(const [x,y] of buildDiagEyeLashPoints()) lashRects+=`<rect x="${x}" y="${y}" width="1" height="1" fill="${DIAG_EYE_PAL.lash}"/>`;
-  const clipRects=buildDiagEyeClipRects();
-  const topCurtain=buildDiagEyeCurtainRects('top');
-  const botCurtain=buildDiagEyeCurtainRects('bottom');
-  const viewBox=`0 0 ${DIAG_EYE_W} ${DIAG_EYE_H}`;
-  return `<div class="fs-eyewrap">
-    <svg class="fs-eye" viewBox="${viewBox}" preserveAspectRatio="none" shape-rendering="crispEdges" aria-hidden="true">
-      <defs><clipPath id="fsEyeClip">${clipRects}</clipPath></defs>
-      <g clip-path="url(#fsEyeClip)">
-        <g class="fs-eye-sclera">${scleraRects}</g>
-        <g class="fs-eye-iris-grp" id="fsEyeIrisGrp">${irisRects}</g>
-      </g>
-      <g class="fs-eye-lashes">${lashRects}</g>
-    </svg>
-    <div class="fs-eyelid fs-eyelid-top" id="fsEyeLidTop">
-      <svg viewBox="${viewBox}" preserveAspectRatio="none" shape-rendering="crispEdges" aria-hidden="true"><g fill="${DIAG_EYE_PAL.lid}">${topCurtain}</g></svg>
-    </div>
-    <div class="fs-eyelid fs-eyelid-bottom" id="fsEyeLidBottom">
-      <svg viewBox="${viewBox}" preserveAspectRatio="none" shape-rendering="crispEdges" aria-hidden="true"><g fill="${DIAG_EYE_PAL.lid}">${botCurtain}</g></svg>
-    </div>
-  </div>`;
-})();
-function diagnosticEyeMarkup(){
-  const blinkDur=(5.6+Math.random()*2.2).toFixed(2);
-  return DIAG_EYE_STATIC.replace('id="fsEyeLidTop"', `id="fsEyeLidTop" style="animation-duration:${blinkDur}s"`)
-                         .replace('id="fsEyeLidBottom"', `id="fsEyeLidBottom" style="animation-duration:${blinkDur}s"`);
-}
-
 function fsFxMarkup(palette, frac){
   frac = frac || 0;
   if(palette==='neon'){
@@ -3742,7 +3573,6 @@ function fsFxMarkup(palette, frac){
     const pulsePts=buildPulsePolyline(300,26);
     return `<div class="fs-fx">
       <div class="fs-readline">${esc(diagnosticReadlineText(frac))}</div>
-      ${diagnosticEyeMarkup()}
       <div class="fs-vitalsdock">
         <div class="fs-squiggrow">
           <div class="fs-squigglebox"><span class="fs-squigglabel">Vert //</span><svg viewBox="0 0 60 22" preserveAspectRatio="none" aria-hidden="true"><polyline points="${sq1}"></polyline></svg></div>
@@ -3790,9 +3620,12 @@ function fsFxMarkup(palette, frac){
   }
   return `<div class="fs-fx"></div>`; // ledger + terminal use pseudo-element glows only
 }
-// Paints the full-screen "cozy cloud" hero art for the halftone theme — a bigger, more
-// central cloud cluster than the page background gets, same dot-field technique. Must
-// run after fsFxMarkup's canvas tag has actually been inserted into the DOM (innerHTML
+// Paints the full-screen "cozy cloud" hero art for the halftone theme — a bigger,
+// more central cumulus cluster than the page background gets (see cumulusCluster()),
+// same fine dot-field technique. A seeded detRng() keeps this hero cloud's exact
+// shape fixed render to render (only its lobes' fine jitter varies, same idea as
+// Glass's buildGlassFlowerPetals()), rather than reshuffling on every open. Must run
+// after fsFxMarkup's canvas tag has actually been inserted into the DOM (innerHTML
 // alone never executes a canvas's drawing — see the renderFullscreenTimer call sites).
 function renderFsCloud(){
   const canvas=document.getElementById('fsCloudCanvas');
@@ -3802,18 +3635,25 @@ function renderFsCloud(){
   canvas.width=Math.floor(w*dpr); canvas.height=Math.floor(h*dpr);
   const ctx=canvas.getContext('2d');
   ctx.setTransform(dpr,0,0,dpr,0,0);
-  const blobs=[
-    {x:0.5,y:0.46,r:0.30,sx:1,sy:0.72},
-    {x:0.33,y:0.58,r:0.22,sx:1,sy:0.85},
-    {x:0.69,y:0.56,r:0.24,sx:1,sy:0.8},
-    {x:0.5,y:0.67,r:0.32,sx:1.25,sy:0.58},
-    {x:0.41,y:0.4,r:0.14,sx:1,sy:1},
-    {x:0.6,y:0.38,r:0.13,sx:1,sy:1}
-  ];
+  const blobs=cumulusCluster(0.5,0.53,0.34,0.27,detRng(1337));
   drawHalftoneField(ctx,w,h,blobs,{
-    cell:9, skyTop:'#0A1524', skyBottom:'#1C3255',
-    skyDot:'rgba(87,198,224,0.55)', cloudDot:'rgba(238,246,253,0.95)', warmDot:'rgba(247,199,109,0.85)'
+    cell:6, skyTop:'#0A1524', skyBottom:'#1C3255',
+    skyDot:'rgba(87,198,224,0.55)', cloudDot:'rgba(238,246,253,0.85)', warmDot:'rgba(247,199,109,0.75)'
   });
+  // Re-paint (rather than just letting CSS stretch the old raster) if the window is
+  // resized while the full-screen cloud is still on screen — otherwise the dot grid
+  // would warp non-uniformly since width/height rarely resize by the same ratio.
+  // Mirrors Glass's identical resize rebind for its full-screen flower canvas.
+  if(!haloFsResizeBound){
+    let fsResizeT=null;
+    window.addEventListener('resize',()=>{
+      clearTimeout(fsResizeT);
+      fsResizeT=setTimeout(()=>{
+        if(timerFullscreen && (state.settings.palette||'ledger')==='halftone' && document.getElementById('fsCloudCanvas')) renderFsCloud();
+      },150);
+    });
+    haloFsResizeBound=true;
+  }
 }
 function renderFullscreenTimer(){
   const root=document.getElementById('fullscreenRoot');
