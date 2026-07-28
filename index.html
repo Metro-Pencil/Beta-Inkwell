@@ -1110,6 +1110,23 @@ textarea{width:100%;resize:vertical;min-height:64px;}
 .cal-bar{position:absolute;inset:0;background:var(--accent-study);z-index:0;}
 .cal-mins{position:relative;z-index:1;font-size:9px;margin-top:auto;font-weight:700;}
 
+/* ===== Detailed Stats: donut + year heatmap ===== */
+.donut{width:120px;height:120px;border-radius:50%;flex-shrink:0;position:relative;}
+.donut::after{content:'';position:absolute;inset:24%;background:var(--paper-2);border-radius:50%;}
+.donutlegend-row{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12.5px;}
+.donutlegend-row .lbl{flex:1;font-weight:500;}
+.donutlegend-row .pct{width:38px;text-align:right;color:var(--ink-soft);}
+.donutlegend-row .val{width:56px;text-align:right;color:var(--ink-soft);}
+
+.yh-scroll{overflow-x:auto;padding-bottom:4px;}
+.yh-grid{display:flex;gap:3px;width:max-content;}
+.yh-col{display:flex;flex-direction:column;align-items:center;}
+.yh-monthlabel{font-size:9px;color:var(--ink-soft);height:12px;margin-bottom:2px;white-space:nowrap;}
+.yh-week{display:flex;flex-direction:column;gap:3px;}
+.yh-cell{width:11px;height:11px;border-radius:2px;background:var(--paper-3);cursor:pointer;}
+.yh-cell.yh-empty{background:transparent;cursor:default;}
+.yh-cell.yh-today{outline:1.5px solid var(--accent-study);outline-offset:1px;}
+
 /* ===== Subjects ===== */
 .subjrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);}
 .subjrow:last-child{border-bottom:none;}
@@ -1385,8 +1402,55 @@ if('serviceWorker' in navigator){
 // normal desktop hover (still darkens on hover, still reverts on mouse-out, exactly
 // as before). No other theme's buttons were reported as affected, so their own
 // :hover overrides (e.g. Glass's) are untouched for now.
-const APP_VERSION='3.20.1';
-const APP_CODENAME='Cumulus';
+// This release bumps MINOR again to 3.21.0 ("Almanac") for a new Detailed Stats page,
+// reached via a "Show detailed stats" button at the bottom of the plain Stats tab. It's
+// deliberately additive to what already existed: the plain Stats tab still owns last-7-
+// days/all-time/homework-rate and the absolute hours-by-subject bars; the Study Log tab
+// still owns the per-day session list and its own month-by-month color-intensity
+// calendar; the Today tab still owns the current streak. Detailed Stats adds: calendar
+// day/week/month-to-date totals alongside daily/weekly/monthly averages (computed over
+// every calendar day including rest days, a different baseline than the Study Log's
+// "avg per active day"); a subject-proportion donut chart (conic-gradient, no canvas)
+// with a week/month/all-time toggle, since the existing subject bars only ever showed
+// absolute hours, never percentages; a "last studied per subject" list surfacing
+// neglected subjects; a year-at-a-glance heatmap (52 weeks x 7 days, GitHub-contribution
+// style, horizontally scrollable) since the existing calendar only ever shows one month
+// at a time and tapping a day jumps the new Session Timeline below to it; concentration
+// metrics (longest single session all-time/this month, average session length, total
+// sessions logged); and pace patterns (longest streak on record — distinct from the
+// Today tab's current streak — plus a by-day-of-week bar chart and a by-time-of-day
+// morning/afternoon/evening/night breakdown). The Session Timeline and time-of-day
+// breakdown both needed a real data model change: studyLogs entries previously only
+// stored a duration (date + minutes), with no clock time at all, so there was no way to
+// show something like "Math 14:00-15:25". logStudy() now takes an optional startedAt
+// and stamps a matching endedAt; the stopwatch already tracked a real start timestamp
+// (state.activeSession.startedAt) and now passes it straight through. Pomodoro needed a
+// new timer.phaseOriginalStartedAt field alongside the existing phaseStartedAt/elapsedMs,
+// since phaseStartedAt resets on every pause/resume and elapsedMs only counts active time
+// — phaseOriginalStartedAt is set once at the true start of a work phase and left alone
+// across pauses within it, so a paused-and-resumed pomodoro session still logs an honest
+// real-world start time. Manually logged past study time (the Timer tab's "Add to log"
+// form, which only ever asks for a date and a duration, never a time of day) still gets
+// no startedAt/endedAt — the timeline shows those as untimed entries rather than
+// fabricating a clock time that was never real, and they're excluded from the
+// time-of-day breakdown for the same reason. Existing studyLogs entries from before this
+// release simply have no startedAt either, and are handled the same way.
+// Also in 3.21.0: the "Log in with sync code" gate-screen modal no longer remembers the
+// sync code itself between logins. That field doubles as this login's password and was
+// already masked (dotted) as of 3.12.0, but the modal was also pre-filling it from
+// localStorage on every open and cloudLogin() was writing the code back to localStorage
+// on every successful login — so it visually looked private but was in practice
+// remembered exactly the way a "remember my password" checkbox would, with no way to
+// opt out. The code is no longer written to or read from localStorage at all; the field
+// always starts blank. purgeLegacyCloudCode() runs once at boot to clear out any code an
+// earlier version already left sitting in a device's localStorage, so upgrading cleans
+// up the old value rather than just stopping new ones. The Worker URL field is unaffected
+// and still remembered (it's a server address, not a credential). The Settings page's own
+// sync code field is also unaffected — that one reflects the current file's own saved
+// sync configuration (needed for the two-way sync feature to keep working without
+// retyping it on every visit), not a cached login credential, so it's a different case.
+const APP_VERSION='3.21.0';
+const APP_CODENAME='Almanac';
 // The ONE intentional difference between the main and beta deployments'
 // index.html: everything else stays byte-identical. Set to 'beta' in the
 // beta copy only, so the version display below reads e.g. "Beta 3.10.0"
@@ -1519,6 +1583,10 @@ let scheduleWeekStart=mondayOfWeek(todayISO());
 let logViewMode='daily';
 let logCursorDate=todayISO();
 let logCursorMonth=todayISO().slice(0,7);
+// --- Detailed Stats (see STATS VIEW below) ---
+let statsDetailOpen=false;       // false = the regular Stats summary; true = the expanded dashboard
+let statsSubjRange='month';      // range for the subject-proportion donut: 'week' | 'month' | 'all'
+let statsTimelineDate=todayISO();// day cursor for the Session Timeline (start/stop log)
 let timerMode='stopwatch';
 let timerFullscreen=false;
 let stopwatchIntervalId=null;
@@ -1552,8 +1620,11 @@ let diagnosticTickerTimer=null; // interval id for the baseline-log ticker; clea
 // (which checks `active`, not `running`) can't be changed mid-session by pausing and swapping.
 // phaseStartedAt/elapsedMs track real wall-clock time for the current phase (survives pause/
 // resume) so the amount logged is always the actual time studied, never a value read back out
-// of settings that could have changed since the session began.
-let timer={running:false,active:false,mode:'work',remaining:25*60,subjectId:null,topic:'',intervalId:null,cyclesDone:0,phaseStartedAt:null,elapsedMs:0};
+// of settings that could have changed since the session began. phaseOriginalStartedAt is
+// similar but is set once at the true start of the phase and never reset by a pause/resume —
+// it's kept purely so a logged session can show an honest "started at" clock time even if the
+// phase was paused partway through (see logStudy() and the Session Timeline in Detailed Stats).
+let timer={running:false,active:false,mode:'work',remaining:25*60,subjectId:null,topic:'',intervalId:null,cyclesDone:0,phaseStartedAt:null,elapsedMs:0,phaseOriginalStartedAt:null};
 function timerPhaseElapsedMs(){
   return timer.elapsedMs + (timer.phaseStartedAt ? (Date.now()-timer.phaseStartedAt) : 0);
 }
@@ -1565,7 +1636,7 @@ function resetTimerForLoadedFile(){
   clearInterval(timer.intervalId); timer.intervalId=null;
   timer.mode='work'; timer.remaining=state.settings.pomodoroWork*60;
   timer.subjectId=null; timer.topic=''; timer.cyclesDone=0;
-  timer.phaseStartedAt=null; timer.elapsedMs=0;
+  timer.phaseStartedAt=null; timer.elapsedMs=0; timer.phaseOriginalStartedAt=null;
 }
 
 const supportsFSAccess='showOpenFilePicker' in window;
@@ -2000,14 +2071,18 @@ function loadCloudCache(url,code){
   }catch(err){ return null; }
 }
 function lastCloudUrl(){ try{ return localStorage.getItem('ledgerLastCloudUrl')||''; }catch(err){ return ''; } }
-function lastCloudCode(){ try{ return localStorage.getItem('ledgerLastCloudCode')||''; }catch(err){ return ''; } }
+// The sync code doubles as this login's password, so — unlike the Worker URL — it's never
+// cached or pre-filled: cloudLogin() below only ever persists the URL. purgeLegacyCloudCode()
+// wipes any value an older version of the app already left sitting in localStorage before this
+// changed, so upgrading a device also clears it out, not just future logins.
+function purgeLegacyCloudCode(){ try{ localStorage.removeItem('ledgerLastCloudCode'); }catch(err){} }
 function cloudLoginModalHtml(){
   return `<h2 style="margin:0 0 10px;">Log in with sync code</h2>
   <p style="font-size:13px;color:var(--ink-soft);line-height:1.55;margin:0 0 16px;">
     Pulls your ledger straight from the cloud using your Worker URL and sync code — no local file needed. This device keeps a cached copy of your edits so nothing's lost even if you close the app before syncing again, but it only actually talks to the server when you tap Sync.
   </p>
   <div class="field"><label for="login-sync-url">Worker URL</label><input type="text" id="login-sync-url" placeholder="https://your-worker.workers.dev" value="${esc(lastCloudUrl())}"></div>
-  <div class="field"><label for="login-sync-code">Sync code</label><input type="password" id="login-sync-code" placeholder="e.g. amber-cedar-4821" value="${esc(lastCloudCode())}" autocomplete="off"></div>
+  <div class="field"><label for="login-sync-code">Sync code</label><input type="password" id="login-sync-code" placeholder="e.g. amber-cedar-4821" value="" autocomplete="off"></div>
   <div class="modalactions">
     <button class="btn" data-action="close-modal">Cancel</button>
     <button class="btn primary" id="cloud-login-btn" data-action="confirm-cloud-login">Log in &amp; sync</button>
@@ -2027,7 +2102,7 @@ async function cloudLogin(url, code){
   photoLockedRaw=null; photoLockKey=null; photoLockMeta=null; photoLockLastWrapper=null;
   state.settings.syncServerUrl=url;
   state.settings.syncCode=code;
-  try{ localStorage.setItem('ledgerLastCloudUrl', url); localStorage.setItem('ledgerLastCloudCode', code); }catch(err){}
+  try{ localStorage.setItem('ledgerLastCloudUrl', url); }catch(err){}
   onCloudReady(code);
   await serverSyncNow();
 }
@@ -2047,7 +2122,7 @@ function stopStopwatch(discard){
   if(!state.activeSession) return;
   if(!discard){
     const elapsedMin=(Date.now()-new Date(state.activeSession.startedAt).getTime())/60000;
-    if(elapsedMin>=0.5) logStudy(state.activeSession.subjectId, elapsedMin, 'stopwatch', state.activeSession.topic||'');
+    if(elapsedMin>=0.5) logStudy(state.activeSession.subjectId, elapsedMin, 'stopwatch', state.activeSession.topic||'', state.activeSession.startedAt);
     else toast('Session was too short to log.');
   }
   state.activeSession=null;
@@ -2140,6 +2215,7 @@ document.getElementById('gateSupportNote').textContent = supportsFSAccess
   : 'Your browser will download an updated file each time you save; overwrite the old one to keep a single ledger.';
 document.getElementById('gateVersionNum').textContent = DISPLAY_VERSION;
 document.getElementById('gateVersionCodename').textContent = APP_CODENAME;
+purgeLegacyCloudCode();
 
 /* ============================= TOAST ============================= */
 function toast(msg){
@@ -3005,7 +3081,7 @@ function render(){
   else if(activeTab==='timer') main.innerHTML=renderTimer();
   else if(activeTab==='log') main.innerHTML=renderLog();
   else if(activeTab==='photos') main.innerHTML=renderPhotos();
-  else if(activeTab==='stats') main.innerHTML=renderStats();
+  else if(activeTab==='stats') main.innerHTML=statsDetailOpen?renderStatsDetailed():renderStats();
   else if(activeTab==='subjects') main.innerHTML=renderSubjects();
   else if(activeTab==='settings') main.innerHTML=renderSettings();
   if(tabChanged){
@@ -3427,16 +3503,16 @@ function tickTimer(){
   }else{
     if(timer.mode==='work'){
       const minutes=timerPhaseElapsedMs()/60000;
-      logStudy(timer.subjectId, minutes, 'timer', timer.topic||'');
+      logStudy(timer.subjectId, minutes, 'timer', timer.topic||'', timer.phaseOriginalStartedAt?new Date(timer.phaseOriginalStartedAt).toISOString():undefined);
       timer.cyclesDone++;
       timer.mode='break';
       timer.remaining=state.settings.pomodoroBreak*60;
-      timer.elapsedMs=0; timer.phaseStartedAt=Date.now();
+      timer.elapsedMs=0; timer.phaseStartedAt=Date.now(); timer.phaseOriginalStartedAt=null;
       toast('Focus session complete — logged '+Math.round(minutes)+' min. Break started.');
     }else{
       timer.mode='work';
       timer.remaining=state.settings.pomodoroWork*60;
-      timer.elapsedMs=0; timer.phaseStartedAt=Date.now();
+      timer.elapsedMs=0; timer.phaseStartedAt=Date.now(); timer.phaseOriginalStartedAt=Date.now();
       toast('Break over — ready for another session.');
     }
     if(activeTab==='timer') render();
@@ -3476,9 +3552,15 @@ function updateFsProgress(){
     if(readline) readline.textContent=diagnosticReadlineText(frac);
   }
 }
-function logStudy(subjectId,minutes,source,note){
+// startedAt (ISO string) is optional: stopwatch and pomodoro sessions pass their real wall-clock
+// start so the log can show an honest time range later; manual "log past study time" entries
+// (source==='manual') have no clock start to give, so they're left without one and the Session
+// Timeline shows them as untimed entries instead of guessing a time that was never real.
+function logStudy(subjectId,minutes,source,note,startedAt){
   if(!subjectId || minutes<=0) return;
-  state.studyLogs.push({id:uid(),subjectId,date:todayISO(),minutes:Math.round(minutes),note:note||'',source:source||'manual'});
+  const entry={id:uid(),subjectId,date:todayISO(),minutes:Math.round(minutes),note:note||'',source:source||'manual'};
+  if(startedAt){ entry.startedAt=startedAt; entry.endedAt=new Date().toISOString(); }
+  state.studyLogs.push(entry);
   scheduleSave();
 }
 
@@ -4447,6 +4529,275 @@ function renderStats(){
     <h3 style="margin:0 0 12px;font-size:14px;">Hours by subject</h3>
     ${state.subjects.length? state.subjects.map(s=>{const m=bySubject[s.id]||0;return `<div class="barrow"><span class="lbl">${esc(s.name)}</span><div class="track"><div class="fill" style="width:${m/maxSubjMin*100}%;background:${s.color};"></div></div><span class="val mono">${fmtMins(m)}</span></div>`}).join('') : '<div class="empty">Add a subject to see breakdowns.</div>'}
   </div>
+  <div style="text-align:center;margin-top:18px;">
+    <button class="btn" data-action="stats-detail-open">Show detailed stats</button>
+  </div>
+  `;
+}
+
+/* ============================= DETAILED STATS ============================= */
+// Everything below is additive to the plain Stats view above and to the Study Log tab's own
+// month-by-month calendar — it never repeats last-7-days/all-time/homework-rate (already above),
+// the monthly heatmap or per-day session list (already in Study Log), or the current streak
+// (already on the Today tab). New here: calendar day/week/month-to-date totals + real averages,
+// a subject-proportion donut with a range toggle, a "last studied per subject" neglect tracker,
+// a chronological session start/stop timeline, a year-at-a-glance heatmap (the Study Log
+// calendar only shows one month at a time), concentration/focus metrics, and pace patterns
+// (longest streak on record, most productive day of week / time of day).
+function sumMinutes(logs){ return logs.reduce((a,l)=>a+l.minutes,0); }
+function daysBetweenISO(a,b){ return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000); }
+function firstLogDate(){ const d=state.studyLogs.map(l=>l.date).sort(); return d.length?d[0]:null; }
+function computeLongestStreak(){
+  const dates=Array.from(new Set(state.studyLogs.map(l=>l.date))).sort();
+  if(!dates.length) return 0;
+  let longest=1, run=1;
+  for(let i=1;i<dates.length;i++){
+    run = addDaysISO(dates[i-1],1)===dates[i] ? run+1 : 1;
+    if(run>longest) longest=run;
+  }
+  return longest;
+}
+function computeCumulativeAnalytics(){
+  const now=todayISO();
+  const monday=mondayOfWeek(now);
+  const ym=now.slice(0,7);
+  const first=firstLogDate();
+  const totalDaysSpan=first?Math.max(1,daysBetweenISO(first,now)+1):1;
+  const last7Min=sumMinutes(state.studyLogs.filter(l=>l.date>=addDaysISO(now,-6)&&l.date<=now));
+  const last30Min=sumMinutes(state.studyLogs.filter(l=>l.date>=addDaysISO(now,-29)&&l.date<=now));
+  const allMin=sumMinutes(state.studyLogs);
+  const weeksSpan=Math.max(1,Math.ceil(totalDaysSpan/7));
+  const monthsSpan=first?Math.max(1,(Number(now.slice(0,4))-Number(first.slice(0,4)))*12+(Number(now.slice(5,7))-Number(first.slice(5,7)))+1):1;
+  return {
+    todayMin: sumMinutes(state.studyLogs.filter(l=>l.date===now)),
+    weekMin: sumMinutes(state.studyLogs.filter(l=>l.date>=monday&&l.date<=now)),
+    monthMin: sumMinutes(state.studyLogs.filter(l=>l.date.slice(0,7)===ym)),
+    allMin,
+    avgPerDay7: Math.round(last7Min/7),
+    avgPerDay30: Math.round(last30Min/Math.min(30,totalDaysSpan)),
+    avgPerDayAll: Math.round(allMin/totalDaysSpan),
+    avgPerWeek: Math.round(allMin/weeksSpan),
+    avgPerMonth: Math.round(allMin/monthsSpan)
+  };
+}
+function logsForRange(range){
+  const now=todayISO();
+  if(range==='week'){ const monday=mondayOfWeek(now); return state.studyLogs.filter(l=>l.date>=monday&&l.date<=now); }
+  if(range==='month'){ const ym=now.slice(0,7); return state.studyLogs.filter(l=>l.date.slice(0,7)===ym); }
+  return state.studyLogs;
+}
+function computeSubjectBreakdown(range){
+  const logs=logsForRange(range);
+  const total=sumMinutes(logs);
+  const bySubject={};
+  logs.forEach(l=>{ bySubject[l.subjectId]=(bySubject[l.subjectId]||0)+l.minutes; });
+  const rows=state.subjects.filter(s=>bySubject[s.id]).map(s=>({subject:s,minutes:bySubject[s.id],pct:total?Math.round(bySubject[s.id]/total*100):0})).sort((a,b)=>b.minutes-a.minutes);
+  return {rows,total};
+}
+function donutGradient(rows,total){
+  let acc=0;
+  return rows.map(r=>{ const start=acc/total*100; acc+=r.minutes; return `${r.subject.color} ${start}% ${acc/total*100}%`; }).join(', ');
+}
+function renderSubjectDonut(range){
+  const {rows,total}=computeSubjectBreakdown(range);
+  if(!rows.length) return `<div class="empty">No study logged ${range==='all'?'yet':'in this range'}.</div>`;
+  return `
+  <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
+    <div class="donut" style="background:conic-gradient(${donutGradient(rows,total)});" role="img" aria-label="Subject time breakdown"></div>
+    <div style="flex:1;min-width:160px;">
+      ${rows.map(r=>`<div class="donutlegend-row"><span class="dot" style="background:${r.subject.color};"></span><span class="lbl">${esc(r.subject.name)}</span><span class="pct mono">${r.pct}%</span><span class="val mono">${fmtMins(r.minutes)}</span></div>`).join('')}
+    </div>
+  </div>`;
+}
+function computeLastStudied(){
+  const now=todayISO();
+  return state.subjects.map(s=>{
+    const dates=state.studyLogs.filter(l=>l.subjectId===s.id).map(l=>l.date).sort();
+    const last=dates.length?dates[dates.length-1]:null;
+    return {subject:s,daysAgo:last?daysBetweenISO(last,now):null};
+  }).sort((a,b)=>{
+    if(a.daysAgo==null&&b.daysAgo==null) return 0;
+    if(a.daysAgo==null) return -1;
+    if(b.daysAgo==null) return 1;
+    return b.daysAgo-a.daysAgo;
+  });
+}
+function computeTimelineForDate(date){
+  const logs=state.studyLogs.filter(l=>l.date===date);
+  return { timed: logs.filter(l=>l.startedAt).sort((a,b)=>a.startedAt.localeCompare(b.startedAt)), untimed: logs.filter(l=>!l.startedAt) };
+}
+function computeConcentration(range){
+  const logs=logsForRange(range);
+  return { longest: logs.reduce((m,l)=>Math.max(m,l.minutes),0), count: logs.length, avg: logs.length?Math.round(sumMinutes(logs)/logs.length):0 };
+}
+function computeDayOfWeekTotals(){
+  const totals=[0,0,0,0,0,0,0];
+  state.studyLogs.forEach(l=>{ totals[isoToDayIdx(l.date)]+=l.minutes; });
+  return totals;
+}
+function computeDayPartTotals(){
+  const buckets={morning:0,afternoon:0,evening:0,night:0};
+  let any=false;
+  state.studyLogs.forEach(l=>{
+    if(!l.startedAt) return;
+    any=true;
+    const h=new Date(l.startedAt).getHours();
+    if(h>=5&&h<=11) buckets.morning+=l.minutes;
+    else if(h>=12&&h<=16) buckets.afternoon+=l.minutes;
+    else if(h>=17&&h<=21) buckets.evening+=l.minutes;
+    else buckets.night+=l.minutes;
+  });
+  return {buckets,any};
+}
+function computeYearHeatmap(){
+  const now=todayISO();
+  const start=addDaysISO(now,-364);
+  const startMonday=mondayOfWeek(start);
+  const dayTotals={};
+  state.studyLogs.forEach(l=>{ if(l.date>=startMonday&&l.date<=now) dayTotals[l.date]=(dayTotals[l.date]||0)+l.minutes; });
+  const maxDay=Math.max(1,...Object.values(dayTotals));
+  const weeks=[]; let cursor=startMonday;
+  while(cursor<=now){
+    const week=[];
+    for(let d=0;d<7;d++){ week.push({date:cursor, mins:dayTotals[cursor]||0, inRange: cursor>=start&&cursor<=now}); cursor=addDaysISO(cursor,1); }
+    weeks.push(week);
+  }
+  return {weeks,maxDay};
+}
+function renderYearHeatmap(){
+  const {weeks,maxDay}=computeYearHeatmap();
+  let lastMonth=null;
+  const cols=weeks.map(week=>{
+    const first=week[0];
+    const m=new Date(first.date+'T00:00:00').getMonth();
+    let label='';
+    if(m!==lastMonth){ label=new Date(first.date+'T00:00:00').toLocaleDateString(undefined,{month:'short'}); lastMonth=m; }
+    const cells=week.map(d=>{
+      if(!d.inRange) return `<div class="yh-cell yh-empty"></div>`;
+      const intensity= d.mins? Math.max(0.18, d.mins/maxDay) : 0;
+      const isToday=d.date===todayISO();
+      const dLabel=new Date(d.date+'T00:00:00').toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
+      return `<div class="yh-cell${isToday?' yh-today':''}" style="${d.mins?`background:var(--accent-study);opacity:${intensity};`:''}" data-action="stats-timeline-jump" data-date="${d.date}" role="button" tabindex="0" title="${dLabel}${d.mins?', '+fmtMins(d.mins)+' studied':', no study logged'}" aria-label="${dLabel}${d.mins?', '+fmtMins(d.mins)+' studied':', no study logged'}"></div>`;
+    }).join('');
+    return `<div class="yh-col"><div class="yh-monthlabel">${label}</div><div class="yh-week">${cells}</div></div>`;
+  }).join('');
+  return `<div class="yh-scroll"><div class="yh-grid">${cols}</div></div>`;
+}
+function renderStatsDetailed(){
+  const a=computeCumulativeAnalytics();
+  const lastStudied=computeLastStudied();
+  const {timed,untimed}=computeTimelineForDate(statsTimelineDate);
+  const dObj=new Date(statsTimelineDate+'T00:00:00');
+  const isToday=statsTimelineDate===todayISO();
+  const concAll=computeConcentration('all');
+  const concMonth=computeConcentration('month');
+  const longestStreak=computeLongestStreak();
+  const hasLogs=state.studyLogs.length>0;
+  const dowTotals=computeDayOfWeekTotals();
+  const maxDow=Math.max(1,...dowTotals);
+  const peakDowIdx=dowTotals.indexOf(Math.max(...dowTotals));
+  const {buckets:dayParts,any:hasTimedData}=computeDayPartTotals();
+  const maxPart=Math.max(1,...Object.values(dayParts));
+
+  return `
+  <div class="pagehead">
+    <div><h1>Detailed Stats</h1><div class="sub">A deeper look at your study patterns.</div></div>
+    <button class="btn small" data-action="stats-detail-close">← Back to overview</button>
+  </div>
+
+  <div class="card" id="cumulativeTimeCard">
+    <h3 style="margin:0 0 12px;font-size:14px;">Cumulative time</h3>
+    <div class="grid3">
+      <div class="card"><div class="statnum">${fmtMins(a.todayMin)}</div><div class="statlabel">Today</div></div>
+      <div class="card"><div class="statnum">${fmtMins(a.weekMin)}</div><div class="statlabel">This week (Mon–today)</div></div>
+      <div class="card"><div class="statnum">${fmtMins(a.monthMin)}</div><div class="statlabel">This month so far</div></div>
+    </div>
+    <div class="grid3" style="margin-top:14px;">
+      <div class="card"><div class="statnum">${fmtMins(a.allMin)}</div><div class="statlabel">All-time</div></div>
+      <div class="card"><div class="statnum">${fmtMins(a.avgPerWeek)}</div><div class="statlabel">Avg per week</div></div>
+      <div class="card"><div class="statnum">${fmtMins(a.avgPerMonth)}</div><div class="statlabel">Avg per month</div></div>
+    </div>
+    <div style="font-size:11.5px;color:var(--ink-soft);margin-top:12px;line-height:1.5;">
+      Average daily study time — last 7 days: <strong class="mono" style="color:var(--ink);">${fmtMins(a.avgPerDay7)}</strong>/day ·
+      last 30 days: <strong class="mono" style="color:var(--ink);">${fmtMins(a.avgPerDay30)}</strong>/day ·
+      all-time: <strong class="mono" style="color:var(--ink);">${fmtMins(a.avgPerDayAll)}</strong>/day.
+      These count every calendar day including rest days — a different baseline than "avg per active day" on the Study Log's monthly view.
+    </div>
+  </div>
+
+  <div class="card" id="subjectProportionCard">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+      <h3 style="margin:0;font-size:14px;">Subject proportion</h3>
+      <div class="viewtoggle">
+        <button class="${statsSubjRange==='week'?'active':''}" data-action="stats-subj-range" data-range="week">Week</button>
+        <button class="${statsSubjRange==='month'?'active':''}" data-action="stats-subj-range" data-range="month">Month</button>
+        <button class="${statsSubjRange==='all'?'active':''}" data-action="stats-subj-range" data-range="all">All time</button>
+      </div>
+    </div>
+    ${renderSubjectDonut(statsSubjRange)}
+  </div>
+
+  <div class="card" id="lastStudiedCard">
+    <h3 style="margin:0 0 10px;font-size:14px;">Last studied per subject</h3>
+    ${lastStudied.length? lastStudied.map(x=>`<div class="barrow" style="margin-bottom:6px;">
+      <span class="dot" style="background:${x.subject.color};"></span>
+      <span class="lbl" style="width:auto;flex:1;">${esc(x.subject.name)}</span>
+      <span class="val mono" style="width:auto;color:${x.daysAgo==null||x.daysAgo>=14?'var(--accent-due)':(x.daysAgo>=7?'var(--accent-gold)':'var(--ink-soft)')};">${x.daysAgo==null?'Never':(x.daysAgo===0?'Today':x.daysAgo+'d ago')}</span>
+    </div>`).join('') : '<div class="empty">Add a subject to track this.</div>'}
+  </div>
+
+  <div class="card" id="sessionTimelineCard">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <h3 style="margin:0;font-size:14px;">Session timeline</h3>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn small" data-action="stats-timeline-prev" aria-label="Previous day">←</button>
+        <span style="font-size:12.5px;font-weight:600;min-width:100px;text-align:center;">${dObj.toLocaleDateString(undefined,{month:'short',day:'numeric'})}${isToday?' · Today':''}</span>
+        <button class="btn small" data-action="stats-timeline-next" aria-label="Next day">→</button>
+      </div>
+    </div>
+    <div style="margin-top:12px;">
+      ${(timed.length||untimed.length)? `
+        ${timed.map(l=>{const s=subj(l.subjectId);return `<div class="sessionrow"><span><span class="dot" style="background:${s?s.color:'#999'};display:inline-block;margin-right:6px;"></span>${s?esc(s.name):'—'}${l.note?' — '+esc(l.note):''}</span><span class="mono">${fmtTime(l.startedAt)}–${fmtTime(l.endedAt)} · ${fmtMins(l.minutes)}</span></div>`}).join('')}
+        ${untimed.map(l=>{const s=subj(l.subjectId);return `<div class="sessionrow"><span><span class="dot" style="background:${s?s.color:'#999'};display:inline-block;margin-right:6px;"></span>${s?esc(s.name):'—'}${l.note?' — '+esc(l.note):''}<span style="color:var(--ink-soft);"> (logged manually, no time recorded)</span></span><span class="mono">${fmtMins(l.minutes)}</span></div>`}).join('')}
+      ` : '<div class="empty">No study logged this day.</div>'}
+    </div>
+  </div>
+
+  <div class="card" id="yearHeatmapCard">
+    <h3 style="margin:0 0 4px;font-size:14px;">Year at a glance</h3>
+    <div style="font-size:11.5px;color:var(--ink-soft);margin-bottom:10px;">Tap a day to jump the timeline above to it.</div>
+    ${renderYearHeatmap()}
+  </div>
+
+  <div class="card" id="concentrationCard">
+    <h3 style="margin:0 0 12px;font-size:14px;">Concentration &amp; focus</h3>
+    <div class="grid3">
+      <div class="card"><div class="statnum">${fmtMins(concAll.longest)}</div><div class="statlabel">Longest single session (all-time)</div></div>
+      <div class="card"><div class="statnum">${fmtMins(concMonth.longest)}</div><div class="statlabel">Longest this month</div></div>
+      <div class="card"><div class="statnum">${fmtMins(concAll.avg)}</div><div class="statlabel">Avg session length</div></div>
+    </div>
+    <div style="font-size:11.5px;color:var(--ink-soft);margin-top:10px;">${concAll.count} session${concAll.count===1?'':'s'} logged in total.</div>
+  </div>
+
+  <div class="card" id="pacePatternsCard">
+    <h3 style="margin:0 0 12px;font-size:14px;">Pace &amp; patterns</h3>
+    <div class="grid2" style="margin-bottom:14px;">
+      <div class="card"><div class="statnum">${longestStreak}</div><div class="statlabel">Longest streak on record (days)</div></div>
+      <div class="card"><div class="statnum">${hasLogs?DAY_NAMES_FULL[peakDowIdx]:'—'}</div><div class="statlabel">Most productive day of the week</div></div>
+    </div>
+    <h4 style="margin:0 0 8px;font-size:12.5px;color:var(--ink-soft);">By day of week (all-time)</h4>
+    <div class="weekbars" style="height:90px;">
+      ${dowTotals.map((m,i)=>`<div class="weekbar-col"><div class="weekbar-fill" style="height:${Math.max(4,m/maxDow*70)}px;"></div><div class="weekbar-day">${DAY_NAMES[i]}</div></div>`).join('')}
+    </div>
+    <h4 style="margin:16px 0 8px;font-size:12.5px;color:var(--ink-soft);">By time of day</h4>
+    ${hasTimedData? `
+      <div class="barrow"><span class="lbl">Morning</span><div class="track"><div class="fill" style="width:${dayParts.morning/maxPart*100}%;background:var(--accent-info);"></div></div><span class="val mono">${fmtMins(dayParts.morning)}</span></div>
+      <div class="barrow"><span class="lbl">Afternoon</span><div class="track"><div class="fill" style="width:${dayParts.afternoon/maxPart*100}%;background:var(--accent-info);"></div></div><span class="val mono">${fmtMins(dayParts.afternoon)}</span></div>
+      <div class="barrow"><span class="lbl">Evening</span><div class="track"><div class="fill" style="width:${dayParts.evening/maxPart*100}%;background:var(--accent-info);"></div></div><span class="val mono">${fmtMins(dayParts.evening)}</span></div>
+      <div class="barrow"><span class="lbl">Night</span><div class="track"><div class="fill" style="width:${dayParts.night/maxPart*100}%;background:var(--accent-info);"></div></div><span class="val mono">${fmtMins(dayParts.night)}</span></div>
+      <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;">Based on sessions timed with the Timer tab (stopwatch or pomodoro) — manually logged entries aren't included since they have no exact time.</div>
+    ` : '<div class="empty">Use the Timer tab a bit more to see when in the day you study most.</div>'}
+  </div>
   `;
 }
 
@@ -4807,11 +5158,14 @@ document.body.addEventListener('click', async function(e){
     if(!timer.active){
       // Only a genuinely fresh start (not a resume-from-pause) may set the subject — this is
       // the one moment the now-disabled select's value is read, so a session can't be split
-      // across two subjects by pausing partway through and picking a different one.
+      // across two subjects by pausing partway through and picking a different one. This is
+      // also the one moment phaseOriginalStartedAt is set, so a pause/resume within the same
+      // phase doesn't push the session's logged "started at" time forward.
       const sel=document.getElementById('timer-subject');
       timer.subjectId=(sel&&sel.value)||state.subjects[0]?.id;
       if(!timer.subjectId){ toast('Add a subject first.'); return; }
       timer.active=true;
+      timer.phaseOriginalStartedAt=Date.now();
     }
     if(!timer.running){
       timer.running=true; timer.phaseStartedAt=Date.now();
@@ -4827,18 +5181,18 @@ document.body.addEventListener('click', async function(e){
   if(action==='timer-reset'){
     timer.running=false; timer.active=false; clearInterval(timer.intervalId);
     timer.mode='work'; timer.remaining=state.settings.pomodoroWork*60; timer.topic='';
-    timer.elapsedMs=0; timer.phaseStartedAt=null;
+    timer.elapsedMs=0; timer.phaseStartedAt=null; timer.phaseOriginalStartedAt=null;
     render(); return;
   }
   if(action==='timer-finish'){
     timer.running=false; clearInterval(timer.intervalId);
     if(timer.mode==='work'){
       const minutes=timerPhaseElapsedMs()/60000;
-      if(minutes>=1) logStudy(timer.subjectId, minutes, 'timer', timer.topic||'');
+      if(minutes>=1) logStudy(timer.subjectId, minutes, 'timer', timer.topic||'', timer.phaseOriginalStartedAt?new Date(timer.phaseOriginalStartedAt).toISOString():undefined);
     }
     timer.active=false;
     timer.mode='work'; timer.remaining=state.settings.pomodoroWork*60; timer.topic='';
-    timer.elapsedMs=0; timer.phaseStartedAt=null;
+    timer.elapsedMs=0; timer.phaseStartedAt=null; timer.phaseOriginalStartedAt=null;
     render(); return;
   }
   if(action==='manual-log'){
@@ -4862,6 +5216,18 @@ document.body.addEventListener('click', async function(e){
       state.studyLogs=state.studyLogs.filter(x=>x.id!==el.dataset.id);
       scheduleSave(); render();
     }
+    return;
+  }
+
+  if(action==='stats-detail-open'){ statsDetailOpen=true; render(); return; }
+  if(action==='stats-detail-close'){ statsDetailOpen=false; render(); return; }
+  if(action==='stats-subj-range'){ statsSubjRange=el.dataset.range; render(); return; }
+  if(action==='stats-timeline-prev'){ statsTimelineDate=addDaysISO(statsTimelineDate,-1); render(); return; }
+  if(action==='stats-timeline-next'){ statsTimelineDate=addDaysISO(statsTimelineDate,1); render(); return; }
+  if(action==='stats-timeline-jump'){
+    statsTimelineDate=el.dataset.date; render();
+    const card=document.getElementById('sessionTimelineCard');
+    if(card) card.scrollIntoView({behavior:'smooth',block:'start'});
     return;
   }
 
