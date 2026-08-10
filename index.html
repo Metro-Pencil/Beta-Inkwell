@@ -786,6 +786,7 @@ nav.navlist{display:flex;flex-direction:column;gap:2px;flex:1;}
 #syncBtn{flex-shrink:0;}
 #syncBtn svg{width:14px;height:14px;}
 #syncBtn.spinning svg{animation:spin .6s linear;}
+#inboxRefreshBtn.spinning svg{animation:spin .6s linear;}
 @keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
 .live-session{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--accent-study);background:var(--accent-study-soft);padding:5px 12px;border-radius:100px;flex-shrink:0;}
 .live-session .dot-pulse{width:8px;height:8px;border-radius:50%;background:var(--accent-study);animation:pulse 1.4s ease-in-out infinite;flex-shrink:0;}
@@ -1469,8 +1470,22 @@ if('serviceWorker' in navigator){
 // original clock range, so that gets dropped the same way logStudy() already avoids
 // fabricating a wall-clock time for manual entries (see the 3.21.0 note above). The
 // Inbox nav icon carries a small count badge whenever sessions are waiting.
-const APP_VERSION='3.22.0';
-const APP_CODENAME='Inbox';
+// 3.23.0 ("Tidy Up") adds two things to the Inbox tab, both aimed at the raw ESP
+// event buffer (state.espStudyLogs) rather than pendingSessions: a "Check for new
+// logs" button that calls serverSyncNow() directly from the Inbox tab, so a fresh
+// ESP session can be pulled in without a trip to Settings; and an "Unfinished on
+// the device" section, built by the new analyzeEspLeftover(), that surfaces
+// whatever's left dangling in that buffer once grouping is done -- a session with
+// a START (and maybe PAUSE/RESUME) but no STOP yet, or any stray PAUSE/RESUME/STOP
+// that arrived with nothing open. Both used to sit invisibly in the sync buffer
+// forever (groupEspEvents() only ever returns whole sessions, never the leftover).
+// Each dangling-open session can be discarded outright or "closed out" -- which
+// estimates an end time/duration from its last known update and drops it into the
+// normal pendingSessions review flow, same as a real STOP would have, tagged with
+// a note that the timing is an estimate. Stray individual events can only be
+// discarded, since there's nothing to attach them to.
+const APP_VERSION='3.23.0';
+const APP_CODENAME='Tidy Up';
 // The ONE intentional difference between the main and beta deployments'
 // index.html: everything else stays byte-identical. Set to 'beta' in the
 // beta copy only, so the version display below reads e.g. "Beta 3.10.0"
@@ -2027,6 +2042,42 @@ function ingestEspEvents(localBuffer, cloudRaw, basePendingSessions){
     newSessionCount++;
   });
   return {pendingSessions, buffer:leftover, newSessionCount};
+}
+// Same walk as groupEspEvents() above, but built for display rather than
+// grouping: instead of only returning whole START...STOP sessions, this
+// surfaces whatever's left dangling in the raw buffer once grouping is done --
+// a session that's still open (started, maybe paused, but never stopped) and
+// any orphaned PAUSE/RESUME/STOP with no START before them in this buffer.
+// groupEspEvents() already consumes and removes any STOP that successfully
+// closes a session, so a STOP reaching this function at all means it arrived
+// with nothing open -- same as any other orphan. Either case means the
+// device's own session state and what it's reported to the cloud have
+// drifted apart somehow (a missed button press, a firmware reflash
+// mid-session, a dropped event) -- surfaced on the Inbox tab (see
+// espOpenIssueCardHtml()/espOrphanCardHtml() below) so they can be reviewed
+// and cleared instead of sitting invisibly in the sync buffer forever. The
+// device only ever runs one session at a time, so there's at most one
+// dangling `open` -- no need to key it by subject or id.
+function analyzeEspLeftover(events){
+  const sorted=(events||[]).filter(e=>e&&e.type&&e.timestamp!=null).slice().sort((a,b)=>a.timestamp-b.timestamp);
+  let open=null;
+  const orphans=[];
+  sorted.forEach(evt=>{
+    if(evt.type==='START'){
+      open={subject:evt.subject, startTs:evt.timestamp, activeSec:0, segStart:evt.timestamp, lastType:'START', lastTs:evt.timestamp, usedIds:[evt.id]};
+    }else if(!open){
+      orphans.push(evt); // nothing open on the device's side -- can't belong to any session
+    }else if(evt.type==='PAUSE'){
+      if(open.segStart!=null){ open.activeSec+=evt.timestamp-open.segStart; open.segStart=null; }
+      open.lastType='PAUSE'; open.lastTs=evt.timestamp; open.usedIds.push(evt.id);
+    }else if(evt.type==='RESUME'){
+      open.segStart=evt.timestamp;
+      open.lastType='RESUME'; open.lastTs=evt.timestamp; open.usedIds.push(evt.id);
+    }else if(evt.type==='STOP'){
+      orphans.push(evt);
+    }
+  });
+  return {open, orphans};
 }
 
 /* ============================= SERVER SYNC (online, via a small Cloudflare Worker) =============================
@@ -3984,13 +4035,83 @@ function subjOptionsForPending(selected){
 function renderInbox(){
   const sessions=state.pendingSessions.slice().sort((a,b)=>new Date(b.startedAt)-new Date(a.startedAt));
   const unmapped=sessions.filter(s=>!s.subjectId).length;
+  // Raw events pulled from the cloud that never formed a complete session --
+  // see analyzeEspLeftover() above. Shown separately from the normal pending
+  // list below since these need to be discarded or manually closed out
+  // before they mean anything, rather than just reviewed and approved.
+  const {open:espOpen, orphans:espOrphans}=analyzeEspLeftover(state.espStudyLogs);
   return `
   <div class="pagehead">
     <div><h1>Inbox</h1><div class="sub">Sessions from the ESP32 room logger land here first. Review, edit, and add each one to your Study Log — nothing here counts toward your totals until you do.</div></div>
+    <button class="btn small" id="inboxRefreshBtn" data-action="refresh-esp-inbox">
+      <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"/></svg>
+      <span>Check for new logs</span>
+    </button>
   </div>
+  ${(espOpen||espOrphans.length)?`
+  <div class="pagehead" style="margin-top:-6px;margin-bottom:2px;">
+    <div><h2 style="font-size:15px;margin:0;">Unfinished on the device</h2>
+    <div class="sub" style="font-size:12px;">${espOpen?'A session never got a STOP':''}${espOpen&&espOrphans.length?', and ':''}${espOrphans.length?`${espOrphans.length} stray event${espOrphans.length===1?'':'s'} showed up with nothing open`:''} — probably from testing the buttons. Discard these, or close the session out below to review it like a normal one.</div></div>
+  </div>
+  ${espOpen?espOpenIssueCardHtml(espOpen):''}
+  ${espOrphans.map(espOrphanCardHtml).join('')}
+  `:''}
   ${unmapped>0?`<div class="card" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span class="tag" style="background:var(--accent-gold-soft);color:var(--accent-gold);">Needs a subject</span><span style="font-size:13px;color:var(--ink-soft);">${unmapped} session${unmapped===1?'':'s'} came in with a subject name that doesn't match any of yours — pick one before adding ${unmapped===1?'it':'them'}.</span></div>`:''}
   ${sessions.length? sessions.map(s=>inboxCardHtml(s)).join('') : '<div class="empty">No pending sessions. Once the ESP32 logs a study session and this device syncs, it will show up here for review.</div>'}
   `;
+}
+// A session with a START (and maybe PAUSE/RESUME after it) but no STOP yet --
+// either still genuinely running/paused on the device, or abandoned entirely
+// (e.g. a firmware reflash reset the device's local state without a final
+// STOP ever being sent). There's at most one of these at a time.
+function espOpenIssueCardHtml(open){
+  const subjectId=matchSubjectByName(open.subject);
+  const sub=subjectId?subj(subjectId):null;
+  const running=open.segStart!=null;
+  const minutes=Math.max(0,Math.round(open.activeSec/60));
+  return `
+  <div class="card" style="border:1px solid var(--accent-due);">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="dot" style="background:${sub?sub.color:'#999'}"></span>
+        <span style="font-weight:600;">${sub?esc(sub.name):esc(open.subject)+' (unmatched)'}</span>
+        <span class="tag" style="background:var(--accent-due-soft);color:var(--accent-due);">${running?'Still running':'Left paused'}</span>
+      </div>
+      <span class="mono" style="font-size:12px;color:var(--ink-soft);">started ${fmtDateTime(isoDateTimeFromEpochSec(open.startTs))}</span>
+    </div>
+    <div style="font-size:13px;color:var(--ink-soft);margin-top:8px;">
+      No STOP has come in for this one — its last update was a ${open.lastType.toLowerCase()} at ${fmtTime(isoDateTimeFromEpochSec(open.lastTs))}, about ${fmtMins(minutes)} logged so far.
+    </div>
+    <div class="modalactions" style="margin-top:10px;">
+      <button class="btn danger" data-action="discard-esp-open">Discard</button>
+      <button class="btn primary" data-action="close-esp-open">Close it out &amp; review</button>
+    </div>
+  </div>`;
+}
+// A single PAUSE/RESUME/STOP that arrived with nothing open on the device's
+// side -- can't be grouped into any session by itself, so the only real
+// option is to discard it. Each gets its own tiny card since, unlike the
+// dangling-open case, there can be more than one of these.
+function espOrphanCardHtml(evt){
+  const subjectId=matchSubjectByName(evt.subject);
+  const sub=subjectId?subj(subjectId):null;
+  return `
+  <div class="card" style="border:1px solid var(--accent-due);">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="dot" style="background:${sub?sub.color:'#999'}"></span>
+        <span style="font-weight:600;">${sub?esc(sub.name):esc(evt.subject)+' (unmatched)'}</span>
+        <span class="tag" style="background:var(--accent-due-soft);color:var(--accent-due);">Stray ${esc(evt.type.toLowerCase())}</span>
+      </div>
+      <span class="mono" style="font-size:12px;color:var(--ink-soft);">${fmtDateTime(isoDateTimeFromEpochSec(evt.timestamp))}</span>
+    </div>
+    <div style="font-size:13px;color:var(--ink-soft);margin-top:8px;">
+      A ${esc(evt.type)} event with no session open on the device's side at the time — doesn't belong to a session by itself.
+    </div>
+    <div class="modalactions" style="margin-top:10px;">
+      <button class="btn danger" data-action="discard-esp-orphan" data-id="${esc(evt.id)}">Discard</button>
+    </div>
+  </div>`;
 }
 function inboxCardHtml(s){
   const sub=s.subjectId?subj(s.subjectId):null;
@@ -5418,6 +5539,73 @@ document.body.addEventListener('click', async function(e){
   if(action==='discard-pending'){
     if(confirm('Discard this session? It will not be added to your Study Log.')){
       state.pendingSessions=state.pendingSessions.filter(x=>x.id!==el.dataset.id);
+      scheduleSave(); render();
+    }
+    return;
+  }
+
+  // Manually triggers the same sync serverSyncNow() already does from
+  // Settings -- lets someone check for freshly-recorded ESP sessions right
+  // from the Inbox tab without navigating away. Requires cloud sync to
+  // already be configured, same as "Save & sync now" does.
+  if(action==='refresh-esp-inbox'){
+    const rawUrl=(state.settings.syncServerUrl||'').trim();
+    const code=(state.settings.syncCode||'').trim();
+    if(!rawUrl||!code){ toast('Set up your Worker URL and sync code in Settings first.'); return; }
+    const btn=document.getElementById('inboxRefreshBtn');
+    if(btn){ btn.classList.add('spinning'); btn.disabled=true; }
+    await serverSyncNow(); // re-renders the Inbox tab itself once done, success or failure
+    return;
+  }
+  // Throws away the raw events behind the one dangling (never-STOPped)
+  // session, if there still is one -- re-derived fresh rather than trusting
+  // a stale reference, since state.espStudyLogs may have changed (e.g. a
+  // refresh) since this card was drawn.
+  if(action==='discard-esp-open'){
+    if(confirm('Discard this unfinished session? Its raw events will be removed and it will not be added to your Study Log.')){
+      const {open}=analyzeEspLeftover(state.espStudyLogs);
+      if(open){
+        const used=new Set(open.usedIds);
+        state.espStudyLogs=state.espStudyLogs.filter(e=>!used.has(e.id));
+        scheduleSave(); render();
+      }
+    }
+    return;
+  }
+  // Turns the dangling open session into a normal pendingSession using its
+  // last known update as a stand-in end time, then drops its raw events from
+  // the buffer -- same effect a real STOP arriving would have had. Lands on
+  // the regular Inbox card below, where the subject/date/minutes can still
+  // be corrected before it's approved into the Study Log.
+  if(action==='close-esp-open'){
+    const {open}=analyzeEspLeftover(state.espStudyLogs);
+    if(!open) return;
+    const used=new Set(open.usedIds);
+    state.espStudyLogs=state.espStudyLogs.filter(e=>!used.has(e.id));
+    const pid='ps_'+open.usedIds[0];
+    if(!state.pendingSessions.some(p=>p.id===pid)){
+      state.pendingSessions.push({
+        id:pid,
+        subjectId:matchSubjectByName(open.subject),
+        subjectNameRaw:open.subject,
+        date:isoDateFromEpochSec(open.startTs),
+        startedAt:isoDateTimeFromEpochSec(open.startTs),
+        endedAt:isoDateTimeFromEpochSec(open.lastTs),
+        minutes:Math.max(0,Math.round(open.activeSec/60)),
+        note:'No STOP was received for this one — end time and minutes are an estimate from its last update.',
+        source:'esp'
+      });
+    }
+    scheduleSave(); render();
+    toast('Moved to the review list below — check the time and subject before adding it.');
+    return;
+  }
+  // A single stray PAUSE/RESUME/STOP can't be turned into anything on its
+  // own (see analyzeEspLeftover() above) -- discarding is the only option.
+  if(action==='discard-esp-orphan'){
+    if(confirm('Discard this event? It has nothing to attach to and can\'t be added to your Study Log.')){
+      const id=el.dataset.id;
+      state.espStudyLogs=state.espStudyLogs.filter(e=>e.id!==id);
       scheduleSave(); render();
     }
     return;
