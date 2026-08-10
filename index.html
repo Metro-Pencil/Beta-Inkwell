@@ -774,6 +774,8 @@ nav.navlist{display:flex;flex-direction:column;gap:2px;flex:1;}
 .navitem:hover{background:var(--paper-3);color:var(--ink);}
 .navitem.active{background:var(--accent-study);color:var(--on-study);}
 .navitem.active svg{stroke:var(--on-study);}
+.navitem{position:relative;}
+.navbadge{position:absolute;top:3px;right:6px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:var(--accent-info);color:#fff;font-size:9px;font-weight:700;line-height:15px;text-align:center;}
 
 .content-col{flex:1;min-width:0;display:flex;flex-direction:column;max-width:1180px;}
 #syncbar{position:sticky;top:0;z-index:15;display:flex;align-items:center;gap:16px;padding:11px 34px;background:var(--paper-2);border-bottom:1px solid var(--line);flex-wrap:wrap;}
@@ -1449,8 +1451,26 @@ if('serviceWorker' in navigator){
 // sync code field is also unaffected — that one reflects the current file's own saved
 // sync configuration (needed for the two-way sync feature to keep working without
 // retyping it on every visit), not a cached login credential, so it's a different case.
-const APP_VERSION='3.21.0';
-const APP_CODENAME='Almanac';
+// 3.22.0 ("Inbox") adds a new Inbox tab that receives study sessions reported by the
+// ESP32 room logger (room_logger.ino) over the same Cloudflare Worker used for regular
+// sync. The sketch logs raw START/PAUSE/RESUME/STOP button events (no duration math on
+// the device) into the Worker's "espStudyLogs" key; a sync now additive-merges those
+// events into a local buffer, groups whole sessions out of them (subtracting any paused
+// span), and drops each one in state.pendingSessions -- see the new ESP32 ROOM LOGGER
+// INBOX section above SERVER SYNC for groupEspEvents()/ingestEspEvents(). Deliberately
+// kept separate from studyLogs at every layer (own array, own additive sync merge, own
+// tab) so nothing an ESP session reports ever touches actual totals on its own. Each
+// Inbox card shows the ESP's reported subject/time range and lets the subject, date,
+// minutes, and note be edited before either discarding it or approving it into the real
+// Study Log; a subject name with no confident match to an existing subject starts the
+// select blank instead of silently defaulting to the first subject in the list. The
+// real start/stop clock times only carry over into the approved entry if the date and
+// minutes were approved unedited -- an edited duration no longer matches the ESP's
+// original clock range, so that gets dropped the same way logStudy() already avoids
+// fabricating a wall-clock time for manual entries (see the 3.21.0 note above). The
+// Inbox nav icon carries a small count badge whenever sessions are waiting.
+const APP_VERSION='3.22.0';
+const APP_CODENAME='Inbox';
 // The ONE intentional difference between the main and beta deployments'
 // index.html: everything else stays byte-identical. Set to 'beta' in the
 // beta copy only, so the version display below reads e.g. "Beta 3.10.0"
@@ -1486,6 +1506,16 @@ function defaultState(){
     ],
     scheduleBlocks:[],
     studyLogs:[],
+    // Sessions the ESP32 room logger has reported, grouped into whole start/stop
+    // sessions but NOT yet folded into studyLogs -- see the Inbox tab. Reviewed,
+    // edited, and explicitly approved one at a time; never counted toward totals
+    // until then.
+    pendingSessions:[],
+    // Raw un-grouped START/PAUSE/RESUME/STOP events pulled from the Worker's
+    // "espStudyLogs" key that don't yet form a complete session (most commonly: a
+    // session still running or paused on the device). Kept here so the next sync
+    // can pick up right where grouping left off -- see ingestEspEvents().
+    espStudyLogs:[],
     homework:[],
     questions:[],
     photos:[],
@@ -1550,6 +1580,8 @@ function migrateState(s){
   const stampIfMissing=arr=>(arr||[]).map(x=>(x&&x.updatedAt==null)?{...x,updatedAt:Date.now()}:x);
   s.scheduleBlocks=stampIfMissing((s.scheduleBlocks||[]).map(b=>({...b, recurring:(b.recurring!==undefined?b.recurring:true), date:(b.date!==undefined?b.date:null)})));
   s.studyLogs=s.studyLogs||[];
+  s.pendingSessions=s.pendingSessions||[];
+  s.espStudyLogs=s.espStudyLogs||[];
   s.homework=stampIfMissing(s.homework||[]);
   s.questions=stampIfMissing(s.questions||[]);
   s.photos=s.photos||[];
@@ -1821,7 +1853,7 @@ function onCloudReady(code){
       server-side intelligence. Ties (identical timestamp on both sides) keep the local copy; this
       only matters when the content is already identical, so it's not a real conflict. */
 function syncableData(){
-  return {subjects:state.subjects, scheduleBlocks:state.scheduleBlocks, studyLogs:state.studyLogs, homework:state.homework, questions:state.questions, tombstones:state.tombstones};
+  return {subjects:state.subjects, scheduleBlocks:state.scheduleBlocks, studyLogs:state.studyLogs, pendingSessions:state.pendingSessions, espStudyLogs:state.espStudyLogs, homework:state.homework, questions:state.questions, tombstones:state.tombstones};
 }
 // Marks `id` as deleted (right now) in the given category's tombstone map. Called by every
 // delete-* action handler instead of just splicing the array, so the deletion can be told apart
@@ -1907,6 +1939,96 @@ function lwwMergeCategory(localArr, localTomb, cloudArr, cloudTomb){
   return {mergedArr, mergedTomb, pulled, pushed};
 }
 
+/* ============================= ESP32 ROOM LOGGER INBOX =============================
+   room_logger.ino (the ESP32 study-session button) never computes a duration itself --
+   it just POSTs raw {id,type,subject,timestamp} events (START/PAUSE/RESUME/STOP, epoch
+   seconds UTC) additively into the Worker's "espStudyLogs" key as they happen. This
+   section turns that raw stream into whole sessions and lands them in
+   state.pendingSessions for review on the Inbox tab -- they never touch studyLogs (and
+   so never count toward totals) until the person explicitly approves each one. */
+function isoDateFromEpochSec(sec){ const d=new Date(sec*1000); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function isoDateTimeFromEpochSec(sec){ return new Date(sec*1000).toISOString(); }
+// Matches an ESP-reported subject name (SUBJECT_NAMES[] in the sketch) against this
+// device's subjects the same case/whitespace-insensitive way subject sync dedup already
+// does. Returns null (left for the person to pick on the Inbox card) if nothing matches --
+// e.g. the sketch's subject text was renamed on one side but not the other.
+function matchSubjectByName(name){
+  const key=normSubjectName(name);
+  const found=state.subjects.find(s=>normSubjectName(s.name)===key);
+  return found?found.id:null;
+}
+// Walks a flat list of raw events in chronological order and reconstructs whole
+// sessions, subtracting any paused span (a PAUSE with no following RESUME before STOP --
+// i.e. stopped while still paused -- correctly excludes that trailing paused time too,
+// since segStart stays null through it). The device only ever runs one session at a
+// time, so this doesn't need to key by subject: a STOP always closes whatever session is
+// currently open. Returns every complete START...STOP run found (each carrying the ids
+// of every event it consumed, so the caller can drop exactly those from the buffer) plus
+// whatever's left over -- a dangling START with no STOP yet (still running/paused on the
+// device) or a stray PAUSE/RESUME/STOP with no matching START -- so a session split
+// across two syncs still groups correctly once its STOP arrives, instead of being lost
+// or misread.
+function groupEspEvents(events){
+  const sorted=(events||[]).filter(e=>e&&e.type&&e.timestamp!=null).slice().sort((a,b)=>a.timestamp-b.timestamp);
+  const sessions=[];
+  const leftoverIds=new Set(sorted.map(e=>e.id));
+  let open=null;
+  sorted.forEach(evt=>{
+    if(evt.type==='START'){
+      open={subject:evt.subject, startTs:evt.timestamp, activeSec:0, segStart:evt.timestamp, usedIds:[evt.id]};
+    }else if(!open){
+      return; // no session open -- orphaned event, stays in the leftover buffer as-is
+    }else if(evt.type==='PAUSE'){
+      if(open.segStart!=null){ open.activeSec+=evt.timestamp-open.segStart; open.segStart=null; }
+      open.usedIds.push(evt.id);
+    }else if(evt.type==='RESUME'){
+      open.segStart=evt.timestamp;
+      open.usedIds.push(evt.id);
+    }else if(evt.type==='STOP'){
+      if(open.segStart!=null){ open.activeSec+=evt.timestamp-open.segStart; }
+      open.usedIds.push(evt.id);
+      sessions.push({subjectNameRaw:open.subject, startedAtSec:open.startTs, endedAtSec:evt.timestamp, minutes:Math.max(0,Math.round(open.activeSec/60)), usedIds:open.usedIds});
+      open.usedIds.forEach(id=>leftoverIds.delete(id));
+      open=null;
+    }
+  });
+  return {sessions, leftover:sorted.filter(e=>leftoverIds.has(e.id))};
+}
+// Merges freshly-pulled cloud events into the local raw-event buffer (additive by id,
+// same idea as mergeLogsAdditive), groups whatever that produces, and appends any
+// genuinely new session to pendingSessions -- deterministic id (the START event's own
+// id) makes this safe to run against a buffer another device already partly processed,
+// since a session that already exists in pendingSessions is just skipped rather than
+// duplicated. Returns the updated pendingSessions array, the trimmed buffer to persist
+// (only the still-incomplete leftover survives), and how many sessions were newly added
+// for the sync summary toast.
+function ingestEspEvents(localBuffer, cloudRaw, basePendingSessions){
+  const existingIds=new Set((localBuffer||[]).map(x=>x&&x.id).filter(Boolean));
+  const merged=(localBuffer||[]).concat((cloudRaw||[]).filter(x=>x&&x.id&&!existingIds.has(x.id)));
+  const {sessions, leftover}=groupEspEvents(merged);
+  const pendingSessions=(basePendingSessions||[]).slice();
+  const existingPendingIds=new Set(pendingSessions.map(p=>p.id));
+  let newSessionCount=0;
+  sessions.forEach(sess=>{
+    const pid='ps_'+sess.usedIds[0];
+    if(existingPendingIds.has(pid)) return;
+    pendingSessions.push({
+      id:pid,
+      subjectId:matchSubjectByName(sess.subjectNameRaw),
+      subjectNameRaw:sess.subjectNameRaw,
+      date:isoDateFromEpochSec(sess.startedAtSec),
+      startedAt:isoDateTimeFromEpochSec(sess.startedAtSec),
+      endedAt:isoDateTimeFromEpochSec(sess.endedAtSec),
+      minutes:sess.minutes,
+      note:'',
+      source:'esp'
+    });
+    existingPendingIds.add(pid);
+    newSessionCount++;
+  });
+  return {pendingSessions, buffer:leftover, newSessionCount};
+}
+
 /* ============================= SERVER SYNC (online, via a small Cloudflare Worker) =============================
    A tiny free backend (see worker.js, deployed separately on Cloudflare Workers) acts as a mailbox
    — it only ever GETs or PUTs a JSON blob under your sync code; every merge decision below happens
@@ -1953,14 +2075,26 @@ async function serverSyncNow(){
     // Step 2: merge every category client-side.
     const subjResult=mergeSubjects(state.subjects, cloud.subjects||[]);
     const logResult=mergeLogsAdditive(state.studyLogs, cloud.studyLogs||[]);
+    // Pending ESP sessions merge additively too, same as studyLogs above -- this pulls
+    // down any session another device already resolved out of the raw event stream, so
+    // grouping (below) never has to redo the same work twice.
+    const pendingResult=mergeLogsAdditive(state.pendingSessions, cloud.pendingSessions||[]);
     const blockResult=lwwMergeCategory(state.scheduleBlocks, state.tombstones.scheduleBlocks, cloud.scheduleBlocks||[], cloudTomb.scheduleBlocks||{});
     const hwResult=lwwMergeCategory(state.homework, state.tombstones.homework, cloud.homework||[], cloudTomb.homework||{});
     const qResult=lwwMergeCategory(state.questions, state.tombstones.questions, cloud.questions||[], cloudTomb.questions||{});
     applySubjectRemapMerge(subjResult.subjectRemap, logResult.merged, blockResult.mergedArr, hwResult.mergedArr, qResult.mergedArr);
 
+    // Step 2b: fold in the ESP32 room logger's raw event stream -- additive-merged into
+    // the local buffer, then grouped into whole sessions (see ingestEspEvents above).
+    // This never writes to studyLogs directly; every session found lands in
+    // pendingSessions for review on the Inbox tab instead.
+    const espIngest=ingestEspEvents(state.espStudyLogs, cloud.espStudyLogs||[], pendingResult.merged);
+
     // Step 3: adopt the merged result locally...
     state.subjects=subjResult.merged;
     state.studyLogs=logResult.merged;
+    state.pendingSessions=espIngest.pendingSessions;
+    state.espStudyLogs=espIngest.buffer;
     state.scheduleBlocks=blockResult.mergedArr;
     state.homework=hwResult.mergedArr;
     state.questions=qResult.mergedArr;
@@ -1981,13 +2115,14 @@ async function serverSyncNow(){
 
     if(cloudMode){ lastSavedAt=Date.now(); setSaveIndicator(true); saveCloudCache(); }
     render();
-    const added=subjResult.addedCount+logResult.addedCount;
+    const added=subjResult.addedCount+logResult.addedCount+pendingResult.addedCount;
     const pulled=blockResult.pulled+hwResult.pulled+qResult.pulled;
     const pushed=blockResult.pushed+hwResult.pushed+qResult.pushed;
     const parts=[];
     if(added>0) parts.push(`${added} new subject/log record${added===1?'':'s'}`);
     if(pulled>0) parts.push(`${pulled} item${pulled===1?'':'s'} updated from the cloud`);
     if(pushed>0) parts.push(`${pushed} new item${pushed===1?'':'s'} pushed up`);
+    if(espIngest.newSessionCount>0) parts.push(`${espIngest.newSessionCount} new ESP session${espIngest.newSessionCount===1?'':'s'} waiting in your Inbox`);
     toast(parts.length? 'Synced — '+parts.join(', ')+'.' : 'Synced — everything already matched.');
   }catch(err){
     if(cloudMode) setSaveIndicator(false);
@@ -2945,6 +3080,7 @@ const TABS=[
   {id:'homework',label:'Homework',icon:'<path d="M9 11l2 2 4-4"/><rect x="3" y="3" width="18" height="18" rx="3"/>'},
   {id:'questions',label:'Questions',icon:'<circle cx="12" cy="12" r="9"/><path d="M9.3 9.4a2.7 2.7 0 1 1 3.9 2.4c-.9.5-1.2.9-1.2 1.8"/><circle cx="12" cy="16.6" r="0.9" fill="currentColor" stroke="none"/>'},
   {id:'timer',label:'Timer',icon:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/>'},
+  {id:'inbox',label:'Inbox',icon:'<path d="M3 12h4l2 3h6l2-3h4"/><path d="M5 5h14l2 7v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7z"/>'},
   {id:'log',label:'Study Log',icon:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18"/><path d="M8 13h2M8 17h2M13 13h3M13 17h3"/>'},
   {id:'photos',label:'Photos',icon:'<path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13.5" r="3.3"/>'},
   {id:'stats',label:'Stats',icon:'<path d="M4 20V10M12 20V4M20 20v-7"/>'},
@@ -2954,7 +3090,12 @@ const TABS=[
 function buildNav(){
   const nav=document.getElementById('navlist');
   nav.setAttribute('aria-label','Main');
-  nav.innerHTML=TABS.map(t=>`<button class="navitem${t.id===activeTab?' active':''}" data-action="nav" data-tab="${t.id}" aria-label="${t.label}"${t.id===activeTab?' aria-current="page"':''}><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${t.icon}</svg><span>${t.label}</span></button>`).join('');
+  nav.innerHTML=TABS.map(t=>{
+    const count=t.id==='inbox'?(state.pendingSessions?state.pendingSessions.length:0):0;
+    const badge=count>0?`<span class="navbadge" aria-hidden="true">${count>99?'99+':count}</span>`:'';
+    const label=count>0?`${t.label}, ${count} pending`:t.label;
+    return `<button class="navitem${t.id===activeTab?' active':''}" data-action="nav" data-tab="${t.id}" aria-label="${label}"${t.id===activeTab?' aria-current="page"':''}><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${t.icon}</svg><span>${t.label}</span>${badge}</button>`;
+  }).join('');
 }
 
 /* ============================= MODAL =============================
@@ -3079,6 +3220,7 @@ function render(){
   else if(activeTab==='homework') main.innerHTML=renderHomework();
   else if(activeTab==='questions') main.innerHTML=renderQuestions();
   else if(activeTab==='timer') main.innerHTML=renderTimer();
+  else if(activeTab==='inbox') main.innerHTML=renderInbox();
   else if(activeTab==='log') main.innerHTML=renderLog();
   else if(activeTab==='photos') main.innerHTML=renderPhotos();
   else if(activeTab==='stats') main.innerHTML=statsDetailOpen?renderStatsDetailed():renderStats();
@@ -3829,6 +3971,51 @@ function renderFullscreenTimer(){
 }
 
 /* ============================= STUDY LOG (daily/monthly history) ============================= */
+/* ============================= INBOX (ESP32 room logger review queue) =============================
+   Sessions the ESP32 room logger reports (see ingestEspEvents/groupEspEvents in the SYNC
+   MERGE HELPERS section) land here, one card per session, and sit untouched by totals
+   until explicitly approved. A subject select with no confident name match starts blank
+   (subjOptionsForPending) so a mismatch is obvious rather than silently defaulting to
+   whichever subject happens to be first. */
+function subjOptionsForPending(selected){
+  const blank=selected?'':'<option value="" selected disabled>Choose a subject…</option>';
+  return blank+subjOptions(selected);
+}
+function renderInbox(){
+  const sessions=state.pendingSessions.slice().sort((a,b)=>new Date(b.startedAt)-new Date(a.startedAt));
+  const unmapped=sessions.filter(s=>!s.subjectId).length;
+  return `
+  <div class="pagehead">
+    <div><h1>Inbox</h1><div class="sub">Sessions from the ESP32 room logger land here first. Review, edit, and add each one to your Study Log — nothing here counts toward your totals until you do.</div></div>
+  </div>
+  ${unmapped>0?`<div class="card" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span class="tag" style="background:var(--accent-gold-soft);color:var(--accent-gold);">Needs a subject</span><span style="font-size:13px;color:var(--ink-soft);">${unmapped} session${unmapped===1?'':'s'} came in with a subject name that doesn't match any of yours — pick one before adding ${unmapped===1?'it':'them'}.</span></div>`:''}
+  ${sessions.length? sessions.map(s=>inboxCardHtml(s)).join('') : '<div class="empty">No pending sessions. Once the ESP32 logs a study session and this device syncs, it will show up here for review.</div>'}
+  `;
+}
+function inboxCardHtml(s){
+  const sub=s.subjectId?subj(s.subjectId):null;
+  return `
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="dot" style="background:${sub?sub.color:'#999'}"></span>
+        <span style="font-weight:600;">${sub?esc(sub.name):esc(s.subjectNameRaw)+' (unmatched)'}</span>
+        <span class="tag" style="background:var(--accent-info-soft);color:var(--accent-info);">ESP</span>
+      </div>
+      <span class="mono" style="font-size:12px;color:var(--ink-soft);">${fmtDateTime(s.startedAt)} – ${fmtTime(s.endedAt)}</span>
+    </div>
+    <div class="fieldrow" style="margin-top:12px;">
+      <div class="field"><label for="pend-subj-${s.id}">Subject</label><select id="pend-subj-${s.id}">${subjOptionsForPending(s.subjectId)}</select></div>
+      <div class="field"><label for="pend-date-${s.id}">Date</label><input type="date" id="pend-date-${s.id}" value="${s.date}"></div>
+      <div class="field"><label for="pend-min-${s.id}">Minutes</label><input type="number" min="1" id="pend-min-${s.id}" value="${s.minutes}"></div>
+    </div>
+    <div class="field"><label for="pend-note-${s.id}">Note (optional)</label><input type="text" id="pend-note-${s.id}" value="${esc(s.note)}" placeholder="What did you cover?"></div>
+    <div class="modalactions" style="margin-top:10px;">
+      <button class="btn danger" data-action="discard-pending" data-id="${s.id}">Discard</button>
+      <button class="btn primary" data-action="approve-pending" data-id="${s.id}">Add to Study Log</button>
+    </div>
+  </div>`;
+}
 function renderLog(){
   return `
   <div class="pagehead">
@@ -5203,6 +5390,37 @@ document.body.addEventListener('click', async function(e){
     if(minutes<=0){ toast('Enter minutes greater than 0.'); return; }
     state.studyLogs.push({id:uid(),subjectId,date,minutes:Math.round(minutes),note,source:'manual'});
     scheduleSave(); render(); toast('Logged '+fmtMins(minutes)+'.'); return;
+  }
+
+  if(action==='approve-pending'){
+    const pid=el.dataset.id;
+    const p=state.pendingSessions.find(x=>x.id===pid);
+    if(!p) return;
+    const subjectId=document.getElementById('pend-subj-'+pid).value;
+    const date=document.getElementById('pend-date-'+pid).value||p.date;
+    const minutes=Number(document.getElementById('pend-min-'+pid).value)||0;
+    const note=document.getElementById('pend-note-'+pid).value.trim();
+    if(!subjectId){ toast('Pick a subject before adding this session.'); return; }
+    if(minutes<=0){ toast('Enter minutes greater than 0.'); return; }
+    const entry={id:uid(),subjectId,date,minutes:Math.round(minutes),note,source:'esp'};
+    // Only keep the ESP32's real start/stop clock times if the date and duration were
+    // approved as detected -- if either was edited, that real clock range no longer
+    // matches the reported minutes, so it's dropped rather than shown as an honest
+    // wall-clock time it no longer is (same reasoning logStudy() already applies to
+    // manual entries -- see the 3.21.0 changelog above).
+    if(date===p.date && Math.round(minutes)===p.minutes && p.startedAt && p.endedAt){
+      entry.startedAt=p.startedAt; entry.endedAt=p.endedAt;
+    }
+    state.studyLogs.push(entry);
+    state.pendingSessions=state.pendingSessions.filter(x=>x.id!==pid);
+    scheduleSave(); render(); toast('Added to Study Log.'); return;
+  }
+  if(action==='discard-pending'){
+    if(confirm('Discard this session? It will not be added to your Study Log.')){
+      state.pendingSessions=state.pendingSessions.filter(x=>x.id!==el.dataset.id);
+      scheduleSave(); render();
+    }
+    return;
   }
 
   if(action==='log-view'){ logViewMode=el.dataset.mode; render(); return; }
