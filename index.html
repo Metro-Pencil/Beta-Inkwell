@@ -1500,7 +1500,20 @@ if('serviceWorker' in navigator){
 // files migrate in with an empty pendingSessions tombstone map; "Erase everything" now
 // tombstones any still-pending sessions too, for the same reason it already does for
 // schedule blocks, homework, and questions.
-const APP_VERSION='3.24.0';
+// 3.24.1 fixes the same class of bug one layer down: discarding a dangling "Unfinished on
+// the device" session, closing one out, or discarding a stray orphan event all removed the
+// underlying raw events from state.espStudyLogs locally, but a sync's GET would still see
+// the cloud's older copy of that raw buffer, and ingestEspEvents() was still merging it in
+// with a plain additive strategy -- so the discarded events came right back, regrouped into
+// the very same dangling session, and the card never actually went away no matter how many
+// times it was discarded. Fixed the same way as 3.24.0: espStudyLogs gets its own tombstone
+// map (state.tombstones.espStudyLogs), discard-esp-open/close-esp-open/discard-esp-orphan
+// now record a tombstone for every raw event id they remove, and ingestEspEvents() drops any
+// tombstoned id from both sides before merging and grouping instead of trusting presence
+// alone. "Erase everything" now tombstones any remaining raw events too. The union-tombstone
+// logic shared by this and mergePendingSessions() was pulled out into unionTombstones() so
+// the two additive+tombstone merges don't each carry their own copy of it.
+const APP_VERSION='3.24.1';
 const APP_CODENAME='Settled';
 // The ONE intentional difference between the main and beta deployments'
 // index.html: everything else stays byte-identical. Set to 'beta' in the
@@ -1552,10 +1565,10 @@ function defaultState(){
     photos:[],
     activeSession:null,
     // Per-category "this id was deleted at this time" records for schedule blocks,
-    // homework, questions, and pendingSessions — see the SYNC MERGE HELPERS section
-    // below for why. Not used for subjects/studyLogs, which intentionally never sync
-    // deletions.
-    tombstones:{scheduleBlocks:{}, homework:{}, questions:{}, pendingSessions:{}},
+    // homework, questions, pendingSessions, and espStudyLogs — see the SYNC MERGE
+    // HELPERS section below for why. Not used for subjects/studyLogs, which
+    // intentionally never sync deletions.
+    tombstones:{scheduleBlocks:{}, homework:{}, questions:{}, pendingSessions:{}, espStudyLogs:{}},
     settings:{darkMode:false,palette:'ledger',pomodoroWork:25,pomodoroBreak:5,reminderDaysBefore:2,syncServerUrl:'',syncCode:''}
   };
 }
@@ -1618,11 +1631,12 @@ function migrateState(s){
   s.questions=stampIfMissing(s.questions||[]);
   s.photos=s.photos||[];
   s.activeSession=s.activeSession||null;
-  s.tombstones=Object.assign({scheduleBlocks:{},homework:{},questions:{},pendingSessions:{}},s.tombstones||{});
+  s.tombstones=Object.assign({scheduleBlocks:{},homework:{},questions:{},pendingSessions:{},espStudyLogs:{}},s.tombstones||{});
   s.tombstones.scheduleBlocks=s.tombstones.scheduleBlocks||{};
   s.tombstones.homework=s.tombstones.homework||{};
   s.tombstones.questions=s.tombstones.questions||{};
   s.tombstones.pendingSessions=s.tombstones.pendingSessions||{};
+  s.tombstones.espStudyLogs=s.tombstones.espStudyLogs||{};
   s.settings=Object.assign({darkMode:false,palette:'ledger',pomodoroWork:25,pomodoroBreak:5,reminderDaysBefore:2,syncServerUrl:'',syncCode:''},s.settings||{});
 
   // Self-heal: if this file already picked up duplicate subjects (e.g. from a
@@ -1874,14 +1888,16 @@ function onCloudReady(code){
       found, the incoming copy is dropped and anything that referenced it is repointed at the
       subject we kept, via subjectRemap, so nothing gets orphaned.
 
-   2) ADDITIVE + TOMBSTONES (pending ESP sessions) — like (1), an incoming record already present
-      here (matched by id) is never overwritten. Unlike (1), though, a pendingSession is *supposed*
-      to disappear for good once it's approved into the Study Log or discarded — that's the normal
-      way every one of them ends its life, not an edge case — so approve-pending/discard-pending
-      both record a tombstone (recordTombstone('pendingSessions', id)) instead of just splicing the
-      array. Without that, a plain additive merge like (1) would see "id no longer present locally"
-      as "the cloud's copy must be new" and add it straight back in on the very next sync, forever.
-      See mergePendingSessions() below.
+   2) ADDITIVE + TOMBSTONES (pending ESP sessions, and the raw espStudyLogs event buffer behind
+      them) — like (1), an incoming record already present here (matched by id) is never
+      overwritten. Unlike (1), though, both of these are *supposed* to lose individual records for
+      good in normal use — a pendingSession once it's approved into the Study Log or discarded, a
+      raw event once its session has been discarded or closed out — so the relevant action handler
+      (approve-pending/discard-pending, discard-esp-open/close-esp-open/discard-esp-orphan) records
+      a tombstone for the id(s) it removes instead of just splicing the array. Without that, a plain
+      additive merge like (1) would see "id no longer present locally" as "the cloud's copy must be
+      new" and add it straight back in on the very next sync, forever. See mergePendingSessions()
+      and ingestEspEvents() below.
 
    3) LAST-WRITE-WINS + TOMBSTONES (schedule blocks, homework, questions) — every record carries an
       updatedAt (ms epoch), stamped whenever it's created, edited, or its status is toggled. Deleting
@@ -1901,7 +1917,7 @@ function syncableData(){
 // delete-* action handler instead of just splicing the array, so the deletion can be told apart
 // from "this device has simply never heard of this id" during the next sync.
 function recordTombstone(category, id){
-  if(!state.tombstones) state.tombstones={scheduleBlocks:{},homework:{},questions:{},pendingSessions:{}};
+  if(!state.tombstones) state.tombstones={scheduleBlocks:{},homework:{},questions:{},pendingSessions:{},espStudyLogs:{}};
   if(!state.tombstones[category]) state.tombstones[category]={};
   state.tombstones[category][id]=Date.now();
 }
@@ -1940,15 +1956,22 @@ function mergeLogsAdditive(localLogs, cloudLogs){
 // full last-write-wins comparison. Any id tombstoned on either side is dropped from the merged
 // array (even if the *other* side still has a live copy — its resolution wins) and never re-added
 // from the cloud again; everything else behaves like a normal additive merge.
-function mergePendingSessions(localArr, localTomb, cloudArr, cloudTomb){
+// Shared by every additive+tombstone merge (pendingSessions, the espStudyLogs raw buffer):
+// unions two {id: deletedAtMs} tombstone maps, keeping the later timestamp for any id present
+// on both sides.
+function unionTombstones(localTomb, cloudTomb){
   localTomb=localTomb||{}; cloudTomb=cloudTomb||{};
-  const tombIds=new Set([...Object.keys(localTomb), ...Object.keys(cloudTomb)]);
-  const mergedTomb={};
-  tombIds.forEach(id=>{
+  const ids=new Set([...Object.keys(localTomb), ...Object.keys(cloudTomb)]);
+  const merged={};
+  ids.forEach(id=>{
     const lt=Object.prototype.hasOwnProperty.call(localTomb,id)?localTomb[id]:-1;
     const ct=Object.prototype.hasOwnProperty.call(cloudTomb,id)?cloudTomb[id]:-1;
-    mergedTomb[id]=Math.max(lt,ct);
+    merged[id]=Math.max(lt,ct);
   });
+  return merged;
+}
+function mergePendingSessions(localArr, localTomb, cloudArr, cloudTomb){
+  const mergedTomb=unionTombstones(localTomb, cloudTomb);
   const merged=(localArr||[]).filter(x=>x&&x.id&&!Object.prototype.hasOwnProperty.call(mergedTomb,x.id));
   const localIds=new Set(merged.map(x=>x.id));
   let addedCount=0;
@@ -2063,17 +2086,26 @@ function groupEspEvents(events){
   });
   return {sessions, leftover:sorted.filter(e=>leftoverIds.has(e.id))};
 }
-// Merges freshly-pulled cloud events into the local raw-event buffer (additive by id,
-// same idea as mergeLogsAdditive), groups whatever that produces, and appends any
-// genuinely new session to pendingSessions -- deterministic id (the START event's own
-// id) makes this safe to run against a buffer another device already partly processed,
-// since a session that already exists in pendingSessions is just skipped rather than
-// duplicated. Returns the updated pendingSessions array, the trimmed buffer to persist
-// (only the still-incomplete leftover survives), and how many sessions were newly added
-// for the sync summary toast.
-function ingestEspEvents(localBuffer, cloudRaw, basePendingSessions){
-  const existingIds=new Set((localBuffer||[]).map(x=>x&&x.id).filter(Boolean));
-  const merged=(localBuffer||[]).concat((cloudRaw||[]).filter(x=>x&&x.id&&!existingIds.has(x.id)));
+// Merges freshly-pulled cloud events into the local raw-event buffer (additive by id, same idea
+// as mergeLogsAdditive, but tombstone-aware the same way mergePendingSessions is above): the
+// Inbox's "Discard"/"Close it out & review" actions on a dangling session, and discarding a
+// stray orphan event, all record a tombstone for the raw event ids they remove (see
+// discard-esp-open/close-esp-open/discard-esp-orphan below) instead of just splicing the buffer.
+// Without that, those ids would still be sitting in the cloud's older copy of espStudyLogs, a
+// plain additive merge would read them right back in on the next sync, groupEspEvents() would
+// reconstruct the very same dangling session from them, and the "Unfinished on the device" card
+// would never actually go away. Groups whatever survives the merge, and appends any genuinely new
+// session to pendingSessions -- deterministic id (the START event's own id) makes this safe to run
+// against a buffer another device already partly processed, since a session that already exists
+// in pendingSessions is just skipped rather than duplicated. Returns the updated pendingSessions
+// array, the trimmed buffer to persist (only the still-incomplete leftover survives), the merged
+// tombstone map to persist, and how many sessions were newly added for the sync summary toast.
+function ingestEspEvents(localBuffer, localTomb, cloudRaw, cloudTomb, basePendingSessions){
+  const mergedTomb=unionTombstones(localTomb, cloudTomb);
+  const notTombstoned=x=>x&&x.id&&!Object.prototype.hasOwnProperty.call(mergedTomb,x.id);
+  const liveLocal=(localBuffer||[]).filter(notTombstoned);
+  const existingIds=new Set(liveLocal.map(x=>x.id));
+  const merged=liveLocal.concat((cloudRaw||[]).filter(x=>notTombstoned(x)&&!existingIds.has(x.id)));
   const {sessions, leftover}=groupEspEvents(merged);
   const pendingSessions=(basePendingSessions||[]).slice();
   const existingPendingIds=new Set(pendingSessions.map(p=>p.id));
@@ -2095,7 +2127,7 @@ function ingestEspEvents(localBuffer, cloudRaw, basePendingSessions){
     existingPendingIds.add(pid);
     newSessionCount++;
   });
-  return {pendingSessions, buffer:leftover, newSessionCount};
+  return {pendingSessions, buffer:leftover, mergedTomb, newSessionCount};
 }
 // Same walk as groupEspEvents() above, but built for display rather than
 // grouping: instead of only returning whole START...STOP sessions, this
@@ -2147,10 +2179,10 @@ function analyzeEspLeftover(events){
         mergeLogsAdditive above). A delete or edit made on either device to one of these never
         removes/changes it on the other via a regular sync — "Upload" is the deliberate escape
         hatch for that (see below).
-      - pending ESP sessions: additive too, but tombstone-aware (see mergePendingSessions above) —
-        approving or discarding one records a tombstone, so a stale cloud copy of an
-        already-resolved session doesn't come back on the next sync the way a plain additive
-        merge would.
+      - pending ESP sessions and the raw espStudyLogs buffer behind them: additive too, but
+        tombstone-aware (see mergePendingSessions/ingestEspEvents above) — approving/discarding a
+        session, or discarding/closing out a dangling one, records a tombstone, so a stale cloud
+        copy doesn't bring an already-resolved session or event back on the next sync.
       - schedule blocks + homework + questions: last-write-wins using each record's updatedAt,
         with tombstones standing in for deletions (see lwwMergeCategory above). This is what fixes
         the old one-way behavior: an edit or delete made *anywhere* now actually reaches the other
@@ -2196,10 +2228,11 @@ async function serverSyncNow(){
     applySubjectRemapMerge(subjResult.subjectRemap, logResult.merged, blockResult.mergedArr, hwResult.mergedArr, qResult.mergedArr);
 
     // Step 2b: fold in the ESP32 room logger's raw event stream -- additive-merged into
-    // the local buffer, then grouped into whole sessions (see ingestEspEvents above).
-    // This never writes to studyLogs directly; every session found lands in
-    // pendingSessions for review on the Inbox tab instead.
-    const espIngest=ingestEspEvents(state.espStudyLogs, cloud.espStudyLogs||[], pendingResult.merged);
+    // the local buffer (tombstone-aware, same reasoning as pendingSessions just above --
+    // see ingestEspEvents), then grouped into whole sessions. This never writes to
+    // studyLogs directly; every session found lands in pendingSessions for review on the
+    // Inbox tab instead.
+    const espIngest=ingestEspEvents(state.espStudyLogs, state.tombstones.espStudyLogs, cloud.espStudyLogs||[], cloudTomb.espStudyLogs||{}, pendingResult.merged);
 
     // Step 3: adopt the merged result locally...
     state.subjects=subjResult.merged;
@@ -2209,7 +2242,7 @@ async function serverSyncNow(){
     state.scheduleBlocks=blockResult.mergedArr;
     state.homework=hwResult.mergedArr;
     state.questions=qResult.mergedArr;
-    state.tombstones={scheduleBlocks:blockResult.mergedTomb, homework:hwResult.mergedTomb, questions:qResult.mergedTomb, pendingSessions:pendingResult.mergedTomb};
+    state.tombstones={scheduleBlocks:blockResult.mergedTomb, homework:hwResult.mergedTomb, questions:qResult.mergedTomb, pendingSessions:pendingResult.mergedTomb, espStudyLogs:espIngest.mergedTomb};
     scheduleSave();
 
     // ...then push that same merged result back so the cloud matches exactly.
@@ -5630,6 +5663,7 @@ document.body.addEventListener('click', async function(e){
       if(open){
         const used=new Set(open.usedIds);
         state.espStudyLogs=state.espStudyLogs.filter(e=>!used.has(e.id));
+        open.usedIds.forEach(id=>recordTombstone('espStudyLogs', id));
         scheduleSave(); render();
       }
     }
@@ -5645,6 +5679,7 @@ document.body.addEventListener('click', async function(e){
     if(!open) return;
     const used=new Set(open.usedIds);
     state.espStudyLogs=state.espStudyLogs.filter(e=>!used.has(e.id));
+    open.usedIds.forEach(id=>recordTombstone('espStudyLogs', id));
     const pid='ps_'+open.usedIds[0];
     if(!state.pendingSessions.some(p=>p.id===pid)){
       state.pendingSessions.push({
@@ -5669,6 +5704,7 @@ document.body.addEventListener('click', async function(e){
     if(confirm('Discard this event? It has nothing to attach to and can\'t be added to your Study Log.')){
       const id=el.dataset.id;
       state.espStudyLogs=state.espStudyLogs.filter(e=>e.id!==id);
+      recordTombstone('espStudyLogs', id);
       scheduleSave(); render();
     }
     return;
@@ -5854,7 +5890,7 @@ document.body.addEventListener('click', async function(e){
     if(confirm('This will erase all subjects, schedule blocks, homework, questions, and study logs in this open ledger — down to a genuinely empty file. Your appearance and timer settings are left as they are.'+photoWarning+' This cannot be undone. Continue?')){
       if(stopwatchIntervalId){ clearInterval(stopwatchIntervalId); stopwatchIntervalId=null; }
       const keepSettings=state.settings;
-      // Tombstone everything being wiped from the three synced-both-ways categories first, so
+      // Tombstone everything being wiped from the synced-both-ways categories first, so
       // that if this device syncs afterward, the wipe actually reaches the cloud (and the other
       // device) instead of these records quietly reappearing from there on the next sync.
       const now=Date.now();
@@ -5862,11 +5898,13 @@ document.body.addEventListener('click', async function(e){
         scheduleBlocks:Object.assign({},state.tombstones.scheduleBlocks),
         homework:Object.assign({},state.tombstones.homework),
         questions:Object.assign({},state.tombstones.questions),
-        pendingSessions:Object.assign({},state.tombstones.pendingSessions)
+        pendingSessions:Object.assign({},state.tombstones.pendingSessions),
+        espStudyLogs:Object.assign({},state.tombstones.espStudyLogs)
       };
       state.scheduleBlocks.forEach(b=>{ wipedTomb.scheduleBlocks[b.id]=now; });
       state.homework.forEach(h=>{ wipedTomb.homework[h.id]=now; });
       state.questions.forEach(q=>{ wipedTomb.questions[q.id]=now; });
+      state.espStudyLogs.forEach(e=>{ wipedTomb.espStudyLogs[e.id]=now; });
       state.pendingSessions.forEach(p=>{ wipedTomb.pendingSessions[p.id]=now; });
       state=defaultState();
       state.subjects=[];
