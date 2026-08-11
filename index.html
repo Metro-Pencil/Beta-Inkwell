@@ -511,48 +511,38 @@
 }
 [data-palette="halftone"] #app{ position:relative; z-index:1; }
 [data-palette="halftone"] .sidebar{
-  background-color:rgba(21,38,64,0.68);
-  background-image:
-    radial-gradient(circle, rgba(244,193,94,0.05) 1px, transparent 1.4px),
-    radial-gradient(circle, rgba(87,198,224,0.06) 1px, transparent 1.4px);
-  background-size:13px 13px, 13px 13px;
-  background-position:0 0, 6.5px 6.5px;
-  backdrop-filter:blur(12px);
+  background-color:rgba(13,24,42,0.9);
+  backdrop-filter:blur(18px);
   border-right:1px solid rgba(87,198,224,0.16);
 }
 [data-palette="halftone"] #syncbar{
-  background:rgba(21,38,64,0.6); backdrop-filter:blur(12px); border-bottom-color:rgba(87,198,224,0.16);
+  background:rgba(13,24,42,0.84); backdrop-filter:blur(18px); border-bottom-color:rgba(87,198,224,0.16);
 }
 [data-palette="halftone"] .card{
-  background-color:rgba(28,50,82,0.58);
-  background-image:
-    radial-gradient(circle, rgba(234,243,252,0.05) 1px, transparent 1.4px),
-    radial-gradient(circle, rgba(87,198,224,0.06) 1px, transparent 1.4px);
-  background-size:12px 12px, 12px 12px;
-  background-position:0 0, 6px 6px;
-  backdrop-filter:blur(8px);
+  background-color:rgba(17,31,53,0.86);
+  backdrop-filter:blur(20px);
   border-color:rgba(87,198,224,0.18);
 }
 [data-palette="halftone"] h1,[data-palette="halftone"] h2,[data-palette="halftone"] h3,[data-palette="halftone"] .display{ font-weight:600; letter-spacing:-0.005em; }
 [data-palette="halftone"] h1::before,[data-palette="halftone"] h2::before,[data-palette="halftone"] h3::before{ content:'· '; color:var(--accent-study); opacity:.75; }
-[data-palette="halftone"] .btn{ background-color:rgba(28,50,82,0.55); backdrop-filter:blur(4px); }
-@media(hover:hover){ [data-palette="halftone"] .btn:hover{ background-color:rgba(37,63,100,0.8); } }
+[data-palette="halftone"] .btn{ background-color:rgba(24,43,72,0.78); backdrop-filter:blur(4px); border-color:rgba(87,198,224,0.22); }
+@media(hover:hover){ [data-palette="halftone"] .btn:hover{ background-color:rgba(33,58,94,0.92); } }
 [data-palette="halftone"] .btn.primary{ animation:haloBreathe 3.6s ease-in-out infinite; }
-[data-palette="halftone"] .navitem.active{ box-shadow:0 4px 18px rgba(87,198,224,0.4); }
-[data-palette="halftone"] .brand-mark{ box-shadow:0 0 14px rgba(87,198,224,0.5); }
+[data-palette="halftone"] .navitem.active{ box-shadow:0 4px 16px rgba(87,198,224,0.32); }
+[data-palette="halftone"] .brand-mark{ box-shadow:0 0 12px rgba(87,198,224,0.4); }
 [data-palette="halftone"] .swatch,[data-palette="halftone"] .navitem,[data-palette="halftone"] .tag,[data-palette="halftone"] .wg-block,[data-palette="halftone"] .cal-cell{ border-radius:12px; }
-[data-palette="halftone"] .cal-cell{ background:rgba(28,50,82,0.4); border-color:rgba(87,198,224,0.16); }
-[data-palette="halftone"] .barrow .track{ background:rgba(20,36,58,0.7); }
+[data-palette="halftone"] .cal-cell{ background:rgba(19,34,58,0.6); border-color:rgba(87,198,224,0.16); }
+[data-palette="halftone"] .barrow .track{ background:rgba(12,22,38,0.85); }
 [data-palette="halftone"] .barrow .fill{ background-image:radial-gradient(circle, rgba(255,255,255,0.35) 1px, transparent 1.2px); background-size:5px 5px; }
 [data-palette="halftone"] .empty{ border-color:rgba(87,198,224,0.28); }
-[data-palette="halftone"] .modal{ background:rgba(19,33,54,0.94); backdrop-filter:blur(18px); border:1px solid rgba(87,198,224,0.2); }
+[data-palette="halftone"] .modal{ background:rgba(13,24,41,0.96); backdrop-filter:blur(20px); border:1px solid rgba(87,198,224,0.2); }
 [data-palette="halftone"] .toast{ background:var(--accent-study); color:var(--on-study); }
 [data-palette="halftone"] select,[data-palette="halftone"] input[type=text],[data-palette="halftone"] input[type=date],[data-palette="halftone"] input[type=number],[data-palette="halftone"] textarea{
-  background:rgba(10,20,34,0.55); border-color:rgba(87,198,224,0.24); color:var(--ink);
+  background:rgba(7,15,27,0.82); border-color:rgba(87,198,224,0.3); color:var(--ink);
 }
 @keyframes haloBreathe{
-  0%,100%{ box-shadow:0 3px 16px rgba(87,198,224,0.28); }
-  50%{ box-shadow:0 5px 26px rgba(87,198,224,0.5); }
+  0%,100%{ box-shadow:0 3px 14px rgba(87,198,224,0.24); }
+  50%{ box-shadow:0 5px 22px rgba(87,198,224,0.4); }
 }
 
 /* --- Halftone-only entrance: an opaque dot curtain that wipes away top-to-bottom the
@@ -1027,7 +1017,7 @@ textarea{width:100%;resize:vertical;min-height:64px;}
    blobs earlier versions used. --- */
 .timer-fs.fs-halftone{background:#0E1A2B;}
 .timer-fs.fs-halftone .fs-cloud-canvas{
-  position:absolute; inset:-4%; width:108%; height:108%;
+  position:absolute; inset:-4%; width:108%; height:108%; opacity:.8;
   animation:fsCloudDrift 16s ease-in-out infinite; transform-origin:50% 60%;
 }
 @keyframes fsCloudDrift{
@@ -1044,9 +1034,13 @@ textarea{width:100%;resize:vertical;min-height:64px;}
   0%,100%{ opacity:.25; transform:scale(.8); }
   50%{ opacity:.9; transform:scale(1.15); }
 }
+/* Stage panel needs to read clearly no matter where the drifting cloud lands behind
+   it, so it's a solidly dark, well-blurred plate rather than a faint tint — see the
+   3.24.2 changelog entry for why this used to wash out against the hero cloud. */
 .timer-fs.fs-halftone .fs-stage{
-  background:rgba(14,26,43,0.42); backdrop-filter:blur(14px);
-  border-radius:28px; padding:36px 42px; border:1px solid rgba(87,198,224,0.22);
+  background:rgba(8,15,26,0.86); backdrop-filter:blur(22px);
+  border-radius:28px; padding:36px 42px; border:1px solid rgba(87,198,224,0.26);
+  box-shadow:0 18px 48px rgba(2,6,14,0.4);
 }
 .timer-fs.fs-halftone .fs-time{ text-shadow:0 0 22px rgba(87,198,224,.4); }
 .timer-fs.fs-halftone .fs-ring-fg{ filter:drop-shadow(0 0 6px rgba(87,198,224,.55)); }
@@ -1513,7 +1507,23 @@ if('serviceWorker' in navigator){
 // alone. "Erase everything" now tombstones any remaining raw events too. The union-tombstone
 // logic shared by this and mergePendingSessions() was pulled out into unionTombstones() so
 // the two additive+tombstone merges don't each carry their own copy of it.
-const APP_VERSION='3.24.1';
+// 3.24.2 is a PATCH: a legibility pass on the Halftone theme, whose card/sidebar/input
+// surfaces were translucent enough (0.55-0.68 alpha) that the page-wide cloud canvas behind
+// them showed through and fought with foreground text — worst on the Timer tab, where the
+// "Recent sessions" card let a bright patch of cloud wash out its own empty-state text, and
+// in the full-screen timer, where the STOPWATCH/Focus labels sat on a .fs-stage panel at only
+// 0.42 alpha and were often barely legible against the hero cloud drifting behind them. Fix
+// is layering, not tokens (the ink/ink-soft color pairs already met contrast targets in
+// isolation): .sidebar, #syncbar, .card, .btn, and text inputs are all substantially more
+// opaque now, each dropped its own separate dot-pattern background-image (three
+// independently-scaled dot grids — body/sidebar/card — were interfering with each other),
+// and the ambient sky canvas itself got both a lower per-dot alpha and an overall
+// opacity:.7 on its layer so it reads as a receding backdrop instead of a foreground graphic.
+// The full-screen hero cloud got the same per-dot alpha reduction, and .fs-stage moved from
+// 0.42 to 0.86 alpha with heavier blur so its text stays readable regardless of where the
+// cloud drifts. Halftone's dot-screen/cumulus identity, the entrance curtain, and the
+// section-switch sweep are all otherwise unchanged.
+const APP_VERSION='3.24.2';
 const APP_CODENAME='Settled';
 // The ONE intentional difference between the main and beta deployments'
 // index.html: everything else stays byte-identical. Set to 'beta' in the
@@ -2719,7 +2729,7 @@ function redrawHalftoneBackground(){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   drawHalftoneField(ctx,w,h,haloBlobs,{
     cell:7, skyTop:'#0A1524', skyBottom:'#182B45',
-    skyDot:'rgba(87,198,224,0.5)', cloudDot:'rgba(234,243,252,0.78)', warmDot:'rgba(244,193,94,0.45)'
+    skyDot:'rgba(87,198,224,0.38)', cloudDot:'rgba(234,243,252,0.42)', warmDot:'rgba(244,193,94,0.26)'
   });
 }
 function setupHalftoneBackground(){
@@ -2727,7 +2737,10 @@ function setupHalftoneBackground(){
   const layer=document.createElement('div');
   layer.id='halftoneBgLayer';
   layer.setAttribute('aria-hidden','true');
-  layer.style.cssText='position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;';
+  // opacity:.7 (rather than baking this into every dot color above) keeps the sky
+  // as a clearly-receding backdrop behind the sidebar/cards/syncbar, which now sit
+  // at much higher background opacity themselves — see the 3.24.2 changelog entry.
+  layer.style.cssText='position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;opacity:.7;';
   const canvas=document.createElement('canvas');
   canvas.id='halftoneBgCanvas';
   canvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;';
@@ -4026,7 +4039,7 @@ function renderFsCloud(){
   const blobs=cumulusCluster(0.5,0.53,0.34,0.27,detRng(1337));
   drawHalftoneField(ctx,w,h,blobs,{
     cell:6, skyTop:'#0A1524', skyBottom:'#1C3255',
-    skyDot:'rgba(87,198,224,0.55)', cloudDot:'rgba(238,246,253,0.85)', warmDot:'rgba(247,199,109,0.75)'
+    skyDot:'rgba(87,198,224,0.42)', cloudDot:'rgba(238,246,253,0.58)', warmDot:'rgba(247,199,109,0.48)'
   });
   // Re-paint (rather than just letting CSS stretch the old raster) if the window is
   // resized while the full-screen cloud is still on screen — otherwise the dot grid
